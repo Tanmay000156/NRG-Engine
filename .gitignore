@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment and secrets
+.env
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS Artifacts
+Thumbs.db
+.DS_Store
+
+# Temporary files
+temp_*
+*.tmp

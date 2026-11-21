@@ -1,0 +1,4128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NRG ENGINE – Cloud Coding Platform</title>
+  <style>
+    /* ==========================================================================
+       1. DESIGN TOKENS & ROOT VARIABLES (Light, Dark & Midnight Themes)
+       ========================================================================== */
+    :root {
+      --bg-ambient-1: #dbeafe;
+      --bg-ambient-2: #bfdbfe;
+      --bg-ambient-3: #eff6ff;
+      --bg-base: #eaf2fd;
+      
+      --glass-panel-bg: rgba(255, 255, 255, 0.72);
+      --glass-panel-border: rgba(255, 255, 255, 0.9);
+      --glass-panel-shadow: 0 8px 24px rgba(0, 102, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+      --glass-panel-blur: blur(24px);
+
+      --card-bg-subtle: rgba(255, 255, 255, 0.55);
+      --card-border-subtle: rgba(255, 255, 255, 0.75);
+
+      --primary-blue: #0066ff;
+      --primary-blue-hover: #0052cc;
+      --primary-gradient: linear-gradient(135deg, #0070f3 0%, #0051cb 100%);
+      --primary-glow: 0 4px 16px rgba(0, 112, 243, 0.38);
+
+      --text-main: #1e293b;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+
+      --code-bg: transparent;
+      --code-active-line: rgba(0, 112, 243, 0.08);
+      --code-line-num: #94a3b8;
+      
+      --syn-keyword: #0066ff;
+      --syn-preproc: #7928ca;
+      --syn-string: #d73a49;
+      --syn-func: #1e293b;
+      --syn-type: #0066ff;
+      --syn-comment: #6a737d;
+      --syn-number: #005cc5;
+
+      --pill-bg: rgba(0, 0, 0, 0.04);
+      --pill-border: rgba(0, 0, 0, 0.05);
+
+      --success-bg: #dcfce7;
+      --success-text: #166534;
+      --success-border: #bbf7d0;
+
+      --radius-panel: 22px;
+      --radius-card: 16px;
+      --radius-btn: 12px;
+      --radius-pill: 9999px;
+
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --editor-font-family: 'Consolas', 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace;
+      --editor-font-size: 14.5px;
+      --editor-line-height: 24px;
+      --editor-tab-size: 4;
+    }
+
+    /* Dark Mode (Cyber Obsidian Glass) */
+    body.theme-dark {
+      --bg-ambient-1: #0f172a;
+      --bg-ambient-2: #1e1b4b;
+      --bg-ambient-3: #030712;
+      --bg-base: #0b0f19;
+
+      --glass-panel-bg: rgba(15, 23, 42, 0.74);
+      --glass-panel-border: rgba(255, 255, 255, 0.12);
+      --glass-panel-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+      --card-bg-subtle: rgba(30, 41, 59, 0.65);
+      --card-border-subtle: rgba(255, 255, 255, 0.08);
+
+      --text-main: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --code-active-line: rgba(0, 112, 243, 0.2);
+      --code-line-num: #64748b;
+
+      --syn-keyword: #38bdf8;
+      --syn-preproc: #c084fc;
+      --syn-string: #f87171;
+      --syn-func: #e2e8f0;
+      --syn-type: #38bdf8;
+      --syn-comment: #94a3b8;
+      --syn-number: #fbbf24;
+
+      --pill-bg: rgba(255, 255, 255, 0.08);
+      --pill-border: rgba(255, 255, 255, 0.1);
+
+      --success-bg: rgba(22, 101, 52, 0.35);
+      --success-text: #4ade80;
+      --success-border: rgba(74, 222, 128, 0.3);
+    }
+
+    /* Midnight Navy Theme */
+    body.theme-midnight {
+      --bg-ambient-1: #0c1a30;
+      --bg-ambient-2: #102a54;
+      --bg-ambient-3: #081120;
+      --bg-base: #070d18;
+
+      --glass-panel-bg: rgba(12, 26, 48, 0.78);
+      --glass-panel-border: rgba(56, 189, 248, 0.18);
+      --glass-panel-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+      --card-bg-subtle: rgba(16, 42, 84, 0.6);
+      --card-border-subtle: rgba(56, 189, 248, 0.12);
+
+      --text-main: #f0f9ff;
+      --text-secondary: #bae6fd;
+      --text-muted: #7dd3fc;
+      --text-dim: #38bdf8;
+    }
+
+    /* ==========================================================================
+       2. VIEWPORT & RESET (Zero Outer Page Scroll, 100vh / 100dvh)
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden; /* Strict no outer scroll */
+      font-family: var(--font-ui);
+      color: var(--text-main);
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(circle at 12% 0%, var(--bg-ambient-1) 0%, transparent 45%),
+        radial-gradient(circle at 88% 10%, var(--bg-ambient-2) 0%, transparent 40%),
+        radial-gradient(circle at 50% 100%, var(--bg-ambient-3) 0%, transparent 50%);
+      background-attachment: fixed;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* App Viewport Container */
+    .app-container {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 10px 18px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    /* Custom Glass Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 102, 255, 0.18);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 102, 255, 0.4);
+    }
+
+    /* ==========================================================================
+       3. TOP NAVIGATION BAR
+       ========================================================================== */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 2px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Brand Logo */
+    .brand-logo {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      text-decoration: none;
+      user-select: none;
+      cursor: pointer;
+    }
+    .brand-logo .brand-nrg {
+      font-size: 24px;
+      font-weight: 900;
+      font-style: italic;
+      color: var(--primary-blue);
+      letter-spacing: -0.5px;
+    }
+    .brand-logo .brand-engine {
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--primary-blue);
+      letter-spacing: 0.5px;
+    }
+
+    /* Global Search Pill */
+    .search-bar-wrap {
+      flex: 1;
+      max-width: 480px;
+      position: relative;
+    }
+    .search-bar {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 40px;
+      padding: 0 14px;
+      gap: 10px;
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-pill);
+      box-shadow: 0 3px 12px rgba(0, 102, 255, 0.04);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .search-bar:hover, .search-bar:focus-within {
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 4px 16px rgba(0, 102, 255, 0.08);
+      border-color: rgba(0, 102, 255, 0.35);
+    }
+    body.theme-dark .search-bar:hover, body.theme-dark .search-bar:focus-within,
+    body.theme-midnight .search-bar:hover, body.theme-midnight .search-bar:focus-within {
+      background: rgba(30, 41, 59, 0.92);
+      border-color: rgba(0, 102, 255, 0.5);
+    }
+    .search-icon {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .search-input {
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-size: 13px;
+      color: var(--text-main);
+      font-family: inherit;
+    }
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+    .search-shortcut {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      padding: 3px 7px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    /* Utility Controls & Profile */
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .nav-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.12);
+      color: var(--primary-blue);
+      border-color: rgba(0, 102, 255, 0.3);
+    }
+    .nav-btn .badge-dot {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      box-shadow: 0 0 6px var(--primary-blue);
+    }
+
+    /* User Profile Pill */
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 12px 3px 5px;
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-pill);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .user-profile:hover {
+      box-shadow: 0 5px 16px rgba(0, 102, 255, 0.12);
+      border-color: rgba(0, 102, 255, 0.3);
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      border: 1.5px solid #fff;
+    }
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+    .user-name {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .user-role {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .user-role span {
+      color: var(--primary-blue);
+      font-weight: 600;
+    }
+    .user-chevron {
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    /* ==========================================================================
+       4. MAIN BODY: RESPONSIVE 3-COLUMN GRID
+       ========================================================================== */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 195px 1fr 255px;
+      gap: 12px;
+      flex: 1;
+      min-height: 0;
+      height: calc(100% - 58px);
+      overflow: hidden;
+    }
+
+    /* ==========================================================================
+       5. LEFT SIDEBAR PANEL
+       ========================================================================== */
+    .sidebar-panel {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px 10px;
+      user-select: none;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      list-style: none;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-btn);
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+    .nav-item:hover {
+      background: var(--card-bg-subtle);
+      color: var(--primary-blue);
+    }
+    .nav-item.active {
+      background: var(--primary-gradient);
+      color: #ffffff;
+      box-shadow: var(--primary-glow);
+      font-weight: 600;
+    }
+    .nav-item svg {
+      flex-shrink: 0;
+    }
+
+    /* Sidebar Footer Version */
+    .sidebar-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 8px;
+    }
+    .sidebar-footer .version-bar {
+      width: 3px;
+      height: 14px;
+      background: var(--primary-blue);
+      border-radius: 2px;
+    }
+    .sidebar-footer .version-text {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+    }
+
+    /* ==========================================================================
+       6. CENTER COLUMN: CODE EDITOR & TERMINAL (Active when 'editor' is open)
+       ========================================================================== */
+    .center-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Breadcrumbs Bar */
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      padding: 0 4px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .breadcrumbs .bc-home {
+      display: flex;
+      align-items: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .breadcrumbs .bc-sep {
+      color: var(--text-dim);
+    }
+    .breadcrumbs .bc-active {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* Code Editor Glass Card */
+    .editor-card {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      display: flex;
+      flex-direction: column;
+      flex: 1.25;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Editor Tabs & Toolbar Header */
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px 6px;
+      border-bottom: 1px solid var(--glass-panel-border);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .editor-tabs-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .file-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: var(--radius-pill);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+    body.theme-dark .file-tab, body.theme-midnight .file-tab {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .file-tab .lang-badge-icon {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      color: white;
+      font-size: 9.5px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .file-tab .tab-close {
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-left: 2px;
+      line-height: 1;
+    }
+    .file-tab .tab-close:hover {
+      color: #ef4444;
+    }
+    .btn-new-tab {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid var(--glass-panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      flex-shrink: 0;
+    }
+    .btn-new-tab:hover {
+      background: #fff;
+      color: var(--primary-blue);
+      box-shadow: 0 2px 8px rgba(0, 102, 255, 0.15);
+    }
+    body.theme-dark .btn-new-tab, body.theme-midnight .btn-new-tab {
+      background: rgba(30, 41, 59, 0.6);
+    }
+
+    /* Editor Right Actions Toolbar */
+    .editor-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Compiler Dropdown Pill */
+    .compiler-select-wrap {
+      position: relative;
+    }
+    .compiler-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-pill);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s ease;
+    }
+    body.theme-dark .compiler-pill, body.theme-midnight .compiler-pill {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .compiler-pill:hover {
+      border-color: var(--primary-blue);
+    }
+    .compiler-badge {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-editor-run {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      border: 0;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0, 102, 255, 0.35);
+      transition: all 0.18s ease;
+    }
+    .btn-editor-run:hover {
+      background: var(--primary-blue-hover);
+      transform: scale(1.05);
+      box-shadow: 0 4px 14px rgba(0, 102, 255, 0.5);
+    }
+    .btn-editor-action {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: transparent;
+      border: 0;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .btn-editor-action:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text-main);
+    }
+    body.theme-dark .btn-editor-action:hover, body.theme-midnight .btn-editor-action:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Sub-bar / Encoding Meta */
+    .editor-sub-meta {
+      display: flex;
+      justify-content: flex-end;
+      padding: 3px 18px 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================================================
+       CODE EDITOR WORKSPACE (Visible Blinking Cursor & Accurate Caret)
+       ========================================================================== */
+    .editor-body-wrap {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      font-family: var(--editor-font-family);
+      font-size: var(--editor-font-size);
+      line-height: var(--editor-line-height);
+    }
+
+    .editor-line-numbers {
+      width: 44px;
+      text-align: right;
+      padding: 6px 12px 6px 0;
+      color: var(--code-line-num);
+      user-select: none;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+    }
+
+    /* Underlying Syntax Highlighted HTML Display */
+    .editor-content-area {
+      position: absolute;
+      top: 0;
+      left: 44px;
+      right: 0;
+      bottom: 0;
+      padding: 6px 8px;
+      white-space: pre;
+      tab-size: var(--editor-tab-size);
+      color: var(--text-main);
+      overflow: hidden;
+      pointer-events: none; /* Mouse clicks pass directly through to textarea */
+      z-index: 2;
+    }
+
+    .editor-line {
+      min-height: var(--editor-line-height);
+      padding-left: 2px;
+      padding-right: 16px;
+    }
+    .editor-line.active-line {
+      background: var(--code-active-line);
+      border-radius: 3px;
+    }
+
+    /* Syntax Tokens */
+    .syn-preproc { color: var(--syn-preproc); font-weight: 600; }
+    .syn-string  { color: var(--syn-string); }
+    .syn-keyword { color: var(--syn-keyword); font-weight: 600; }
+    .syn-type    { color: var(--syn-type); font-weight: 600; }
+    .syn-func    { color: var(--syn-func); font-weight: 600; }
+    .syn-comment { color: var(--syn-comment); font-style: italic; }
+    .syn-number  { color: var(--syn-number); }
+
+    /* Interactive Overlay Textarea with PROMINENT BLINKING CARET */
+    .editor-code-input {
+      position: absolute;
+      top: 0;
+      left: 44px;
+      right: 0;
+      bottom: 0;
+      padding: 6px 8px;
+      background: transparent;
+      color: transparent; /* Transparent text allows syntax colors underneath to show */
+      caret-color: var(--primary-blue); /* BLINKING ELECTRIC BLUE CURSOR IS CLEARLY VISIBLE! */
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      white-space: pre;
+      tab-size: var(--editor-tab-size);
+      resize: none;
+      border: 0;
+      outline: 0;
+      overflow: auto;
+      z-index: 5;
+    }
+    .editor-code-input::selection {
+      background: rgba(0, 102, 255, 0.22);
+      color: transparent;
+    }
+
+    /* Editor Footer / Status Bar */
+    .editor-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      border-top: 1px solid var(--glass-panel-border);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .editor-stats {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .stat-sep {
+      color: var(--text-dim);
+    }
+    .auto-indent-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    /* iOS-Style Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 18px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #cbd5e1;
+      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 20px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: var(--primary-blue);
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(16px);
+    }
+
+    /* ==========================================================================
+       7. TERMINAL & EXECUTION PANEL
+       ========================================================================== */
+    .terminal-card {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      display: flex;
+      flex-direction: column;
+      flex: 0.85;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Terminal Tab Bar */
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--glass-panel-border);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .terminal-tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s ease;
+    }
+    .terminal-tab-btn:hover {
+      background: var(--card-bg-subtle);
+      color: var(--text-main);
+    }
+    .terminal-tab-btn.active {
+      background: rgba(0, 102, 255, 0.12);
+      color: var(--primary-blue);
+      font-weight: 600;
+      position: relative;
+    }
+    .terminal-tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: var(--primary-blue);
+      border-radius: 2px;
+    }
+
+    /* Terminal Status Badge & Clear */
+    .terminal-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .terminal-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 12px;
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+      font-size: 11.5px;
+      font-weight: 700;
+      border-radius: var(--radius-pill);
+      box-shadow: 0 1px 4px rgba(22, 101, 52, 0.08);
+      user-select: none;
+      transition: all 0.25s ease;
+    }
+    .terminal-status-badge.running {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+    .terminal-status-badge.error {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+      box-shadow: 0 1px 4px rgba(185, 28, 28, 0.12);
+    }
+    .terminal-status-badge.warning {
+      background: #ffedd5;
+      border-color: #fed7aa;
+      color: #c2410c;
+    }
+    .terminal-status-badge.ready {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+    body.theme-dark .terminal-status-badge.error, body.theme-midnight .terminal-status-badge.error {
+      background: rgba(185, 28, 28, 0.25);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+    body.theme-dark .terminal-status-badge.warning, body.theme-midnight .terminal-status-badge.warning {
+      background: rgba(194, 65, 12, 0.25);
+      border-color: rgba(249, 115, 22, 0.4);
+      color: #fdba74;
+    }
+    body.theme-dark .terminal-status-badge.ready, body.theme-midnight .terminal-status-badge.ready {
+      background: rgba(29, 78, 216, 0.25);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+    }
+
+    /* Terminal Lines & Diagnostic Blocks */
+    .term-error-line {
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      margin: 4px 0;
+    }
+    .term-warning-line {
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      margin: 4px 0;
+    }
+    .term-stderr-block {
+      color: #b91c1c;
+      background: rgba(239, 68, 68, 0.06);
+      border-left: 3px solid #ef4444;
+      padding: 8px 12px;
+      margin: 6px 0;
+      border-radius: 0 6px 6px 0;
+      white-space: pre-wrap;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 19px;
+    }
+    body.theme-dark .term-stderr-block, body.theme-midnight .term-stderr-block {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.16);
+    }
+
+    /* Diagnostic & Problems Cards */
+    .problems-empty-state {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #16a34a;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .problem-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .problem-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.22);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .problem-card:hover {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.45);
+      transform: translateX(2px);
+    }
+    .problem-card.warning {
+      background: rgba(245, 158, 11, 0.05);
+      border-color: rgba(245, 158, 11, 0.25);
+    }
+    .problem-card.warning:hover {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+    .problem-severity-badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      background: #ef4444;
+      color: #fff;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .problem-card.warning .problem-severity-badge {
+      background: #f59e0b;
+    }
+    .problem-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .problem-title {
+      font-weight: 700;
+      font-size: 12.5px;
+      color: var(--text-main);
+      word-break: break-word;
+      font-family: var(--font-mono);
+    }
+    .problem-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .problem-jump-hint {
+      color: var(--primary-blue);
+      font-weight: 600;
+      text-decoration: underline;
+    }
+    .btn-terminal-clear {
+      background: transparent;
+      border: 0;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px;
+      border-radius: 6px;
+      transition: all 0.18s ease;
+    }
+    .btn-terminal-clear:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Terminal Console Body */
+    .terminal-body {
+      flex: 1;
+      padding: 10px 16px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 20px;
+      color: var(--text-main);
+      min-height: 0;
+    }
+
+    .term-header-line {
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    body.theme-dark .term-header-line { color: #93c5fd; }
+    body.theme-midnight .term-header-line { color: #38bdf8; }
+
+    .term-success-line {
+      color: #16a34a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+    body.theme-dark .term-success-line, body.theme-midnight .term-success-line {
+      color: #4ade80;
+    }
+
+    .term-output-text {
+      margin: 6px 0;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .term-divider {
+      color: var(--text-dim);
+      margin: 3px 0;
+      user-select: none;
+    }
+
+    .term-meta-line {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .term-prompt-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .term-prompt-prefix {
+      color: #16a34a;
+      font-weight: 700;
+      user-select: none;
+    }
+    .term-prompt-input {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: inherit;
+    }
+    .cursor-block {
+      display: inline-block;
+      width: 7px;
+      height: 15px;
+      background: var(--text-muted);
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Terminal Tab Alternative Views */
+    .terminal-tab-view {
+      display: none;
+      height: 100%;
+      flex-direction: column;
+    }
+    .terminal-tab-view.active {
+      display: flex;
+    }
+    .stdin-input-box {
+      width: 100%;
+      height: 100%;
+      min-height: 80px;
+      background: rgba(0, 0, 0, 0.02);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: 8px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--text-main);
+      resize: none;
+      outline: none;
+    }
+    body.theme-dark .stdin-input-box, body.theme-midnight .stdin-input-box {
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    /* ==========================================================================
+       8. RIGHT COLUMN: LANGUAGES PANEL & ACTIONS PANEL
+       ========================================================================== */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Languages Card */
+    .languages-card {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      flex: 1.4;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel-section-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--text-main);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      padding-left: 2px;
+      flex-shrink: 0;
+    }
+
+    .languages-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow-y: auto;
+      padding-right: 2px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .lang-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-radius: var(--radius-btn);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s ease;
+    }
+    .lang-item:hover {
+      background: var(--card-bg-subtle);
+    }
+    .lang-item.active {
+      background: rgba(0, 102, 255, 0.09);
+      font-weight: 700;
+    }
+    body.theme-dark .lang-item.active, body.theme-midnight .lang-item.active {
+      background: rgba(0, 102, 255, 0.22);
+    }
+
+    .lang-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .lang-icon-badge {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: white;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      flex-shrink: 0;
+    }
+    .lang-name {
+      font-size: 13px;
+      color: var(--text-main);
+    }
+    .lang-check {
+      color: var(--primary-blue);
+      display: none;
+    }
+    .lang-item.active .lang-check {
+      display: block;
+    }
+
+    /* Actions Card */
+    .actions-card {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Action Buttons */
+    .action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--card-border-subtle);
+      background: var(--card-bg-subtle);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    }
+    body.theme-dark .action-btn:hover, body.theme-midnight .action-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .action-btn-primary {
+      background: var(--primary-gradient);
+      border: 0;
+      color: #ffffff;
+      box-shadow: var(--primary-glow);
+    }
+    .action-btn-primary:hover {
+      background: linear-gradient(135deg, #007bfd 0%, #0059de 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 112, 243, 0.45);
+    }
+
+    .btn-left-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .action-shortcut {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2.5px 7px;
+      border-radius: 5px;
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      color: var(--text-muted);
+    }
+    .action-btn-primary .action-shortcut {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+    }
+
+    /* ==========================================================================
+       9. FULL SECTION VIEWS (Home, Projects, Templates, Snippets, Collab, Settings)
+       ========================================================================== */
+    .section-full-view {
+      grid-column: 2 / -1;
+      height: 100%;
+      min-height: 0;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .section-full-view.active {
+      display: flex;
+    }
+
+    .section-glass-card {
+      background: var(--glass-panel-bg);
+      backdrop-filter: var(--glass-panel-blur);
+      -webkit-backdrop-filter: var(--glass-panel-blur);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--glass-panel-shadow);
+      padding: 18px 22px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      gap: 16px;
+    }
+
+    .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary-blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-subtext {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Common Buttons in Sections */
+    .glass-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--glass-panel-border);
+      background: var(--card-bg-subtle);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .glass-btn:hover {
+      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.1);
+      border-color: rgba(0, 102, 255, 0.3);
+    }
+    .glass-btn-primary {
+      background: var(--primary-gradient);
+      color: white;
+      border: 0;
+      box-shadow: var(--primary-glow);
+    }
+    .glass-btn-primary:hover {
+      background: linear-gradient(135deg, #007bfd 0%, #0059de 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 112, 243, 0.45);
+    }
+
+    /* --- A. HOME VIEW STYLES --- */
+    .home-banner {
+      background: linear-gradient(135deg, rgba(0, 102, 255, 0.08) 0%, rgba(121, 40, 202, 0.08) 100%);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 18px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .home-banner-text h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .home-banner-text p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .home-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .stat-card {
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary-blue);
+    }
+
+    /* Cards Grid (Projects & Templates) */
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .item-card {
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .item-card:hover {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(0, 102, 255, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 102, 255, 0.08);
+    }
+    body.theme-dark .item-card:hover, body.theme-midnight .item-card:hover {
+      background: rgba(30, 41, 59, 0.9);
+    }
+    .item-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .item-card-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .item-card-desc {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 18px;
+    }
+    .item-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--pill-border);
+      padding-top: 8px;
+    }
+
+    /* --- B. SNIPPETS VIEW STYLES --- */
+    .snippets-search-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      flex: 1;
+      max-width: 380px;
+    }
+    .snippet-code-box {
+      background: rgba(0, 0, 0, 0.04);
+      border: 1px solid var(--pill-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      max-height: 100px;
+      overflow-y: auto;
+      white-space: pre;
+      color: var(--text-main);
+    }
+    body.theme-dark .snippet-code-box, body.theme-midnight .snippet-code-box {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    /* --- C. COLLABORATE VIEW STYLES --- */
+    .collab-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+    }
+    .collab-roster {
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .collab-user-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 10px;
+    }
+    .collab-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid;
+    }
+    .collab-chat-pane {
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 0;
+    }
+    .collab-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+    .chat-bubble {
+      max-width: 80%;
+      padding: 8px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 18px;
+    }
+    .chat-bubble.mine {
+      align-self: flex-end;
+      background: var(--primary-gradient);
+      color: white;
+    }
+    .chat-bubble.theirs {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--glass-panel-border);
+      color: var(--text-main);
+    }
+    body.theme-dark .chat-bubble.theirs, body.theme-midnight .chat-bubble.theirs {
+      background: rgba(30, 41, 59, 0.85);
+    }
+
+    /* --- D. SETTINGS VIEW STYLES --- */
+    .settings-section-card {
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--card-border-subtle);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--pill-border);
+    }
+    .settings-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .settings-row-text h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .settings-row-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .theme-picker-group {
+      display: flex;
+      gap: 10px;
+    }
+    .theme-card-option {
+      padding: 8px 16px;
+      border-radius: var(--radius-btn);
+      border: 1.5px solid var(--card-border-subtle);
+      background: var(--glass-panel-bg);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .theme-card-option.active {
+      border-color: var(--primary-blue);
+      background: rgba(0, 102, 255, 0.12);
+      color: var(--primary-blue);
+    }
+
+    /* ==========================================================================
+       10. MODALS, COMMAND PALETTE & OVERLAYS
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.open {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-dialog {
+      width: 90%;
+      max-width: 540px;
+      background: var(--glass-panel-bg);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: 20px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+      animation: modalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 22px;
+    }
+    @keyframes modalSlide {
+      from { transform: scale(0.96) translateY(-8px); opacity: 0; }
+      to   { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary-blue);
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .form-input {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: 8px;
+      font-size: 13.5px;
+      color: var(--text-main);
+      outline: none;
+      font-family: inherit;
+    }
+    body.theme-dark .form-input, body.theme-midnight .form-input {
+      background: rgba(30, 41, 59, 0.85);
+    }
+    .form-input:focus {
+      border-color: var(--primary-blue);
+      box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.2);
+    }
+
+    /* Toast Notification */
+    .toast-notice {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(50px);
+      background: var(--text-main);
+      color: var(--bg-base);
+      padding: 8px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      z-index: 2000;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-notice.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ====================================================================
+         1. TOP NAVIGATION
+         ==================================================================== -->
+    <header class="top-nav">
+      <!-- Branding & Identity -->
+      <a class="brand-logo" id="navLogoBtn" title="NRG Engine Home">
+        <span class="brand-nrg">NRG</span>
+        <span class="brand-engine">ENGINE</span>
+      </a>
+
+      <!-- Global Search Bar (Ctrl + K) -->
+      <div class="search-bar-wrap">
+        <div class="search-bar" id="searchBarBtn">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="search-input" placeholder="Search code, projects, snippets..." readonly>
+          <span class="search-shortcut">Ctrl + K</span>
+        </div>
+      </div>
+
+      <!-- Utility Controls & User Profile -->
+      <div class="nav-actions">
+        <!-- Notifications -->
+        <button class="nav-btn" id="btnNotifications" title="Notifications">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="badge-dot"></span>
+        </button>
+
+        <!-- Messages -->
+        <button class="nav-btn" id="btnMessages" title="Collaboration Messages">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+
+        <!-- Theme Toggle (Light / Dark) -->
+        <button class="nav-btn" id="btnThemeToggle" title="Toggle Light / Dark Mode">
+          <svg id="themeSunIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="user-profile" id="userProfileBtn" title="User Settings">
+          <img class="user-avatar" id="tanmayAvatarImg" alt="Tanmay Verma" src="tanmay_avatar.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 32 32\'><circle cx=\'16\' cy=\'16\' r=\'16\' fill=\'%230066ff\'/><text x=\'50%25\' y=\'55%25\' font-size=\'13\' font-weight=\'bold\' fill=\'white\' dominant-baseline=\'middle\' text-anchor=\'middle\'>TV</text></svg>'">
+          <div class="user-meta">
+            <span class="user-name">Tanmay Verma</span>
+            <span class="user-role">Developer • <span>Pro</span></span>
+          </div>
+          <svg class="user-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         2. MAIN LAYOUT
+         ==================================================================== -->
+    <main class="main-layout">
+
+      <!-- ================================================================
+           A. NAVIGATION SIDEBAR
+           ================================================================ -->
+      <aside class="sidebar-panel">
+        <ul class="nav-list" id="sidebarNavList">
+          <li class="nav-item" data-nav="home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <span>Home</span>
+          </li>
+          <li class="nav-item" data-nav="projects">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Projects</span>
+          </li>
+          <!-- Active State: Editor -->
+          <li class="nav-item active" data-nav="editor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span>Editor</span>
+          </li>
+          <li class="nav-item" data-nav="templates">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span>Templates</span>
+          </li>
+          <li class="nav-item" data-nav="snippets">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Snippets</span>
+          </li>
+          <li class="nav-item" data-nav="collaborate">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Collaborate</span>
+          </li>
+          <li class="nav-item" data-nav="settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Settings</span>
+          </li>
+        </ul>
+
+        <!-- Sidebar Footer Version -->
+        <div class="sidebar-footer">
+          <div class="version-bar"></div>
+          <span class="version-text">NRG ENGINE v1</span>
+        </div>
+      </aside>
+
+      <!-- ================================================================
+           B. CENTER COLUMN: EDITOR & EXECUTION TERMINAL
+           ================================================================ -->
+      <section class="center-col" id="viewCenterEditor">
+
+        <!-- Workspace Breadcrumbs -->
+        <div class="breadcrumbs">
+          <span class="bc-home" id="bcHomeLink" title="Go to Home">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+          </span>
+          <span class="bc-sep">/</span>
+          <span id="bcWorkspaceName">Workspace</span>
+          <span class="bc-sep">/</span>
+          <span class="bc-active" id="breadcrumbFilename">main.c</span>
+        </div>
+
+        <!-- Code Editor Card -->
+        <div class="editor-card">
+          <!-- Editor Header Toolbar -->
+          <div class="editor-header">
+            <!-- File Tabs -->
+            <div class="editor-tabs-group" id="editorTabsContainer">
+              <div class="file-tab active" id="primaryFileTab">
+                <span class="lang-badge-icon" id="tabLangIcon">C</span>
+                <span id="tabFilename">main.c</span>
+                <span class="tab-close" title="Close File">×</span>
+              </div>
+              <button class="btn-new-tab" id="btnNewTab" title="New File Tab">+</button>
+            </div>
+
+            <!-- Editor Right Controls -->
+            <div class="editor-tools">
+              <!-- Compiler Selector -->
+              <div class="compiler-select-wrap">
+                <div class="compiler-pill" id="compilerSelectorBtn">
+                  <span class="compiler-badge" id="compilerBadgeIcon">C</span>
+                  <span id="compilerLabelText">C (GCC)</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Quick Run Button -->
+              <button class="btn-editor-run" id="btnEditorRun" title="Run Code (Ctrl + Enter)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </button>
+
+              <!-- Save Button -->
+              <button class="btn-editor-action" id="btnEditorSave" title="Save File (Ctrl + S)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+              </button>
+
+              <!-- More Options -->
+              <button class="btn-editor-action" id="btnEditorMore" title="More Options">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="1.5"></circle>
+                  <circle cx="12" cy="5" r="1.5"></circle>
+                  <circle cx="12" cy="19" r="1.5"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Encoding Meta Tag (UTF-8 • LF) -->
+          <div class="editor-sub-meta">
+            <span>UTF-8 &nbsp;•&nbsp; LF</span>
+          </div>
+
+          <!-- Editor Body (Interactive Workspace with Visible Blinking Cursor) -->
+          <div class="editor-body-wrap" id="editorBodyWrap">
+            <!-- Line Numbers Column -->
+            <div class="editor-line-numbers" id="editorLineNumbers">
+              <div>1</div>
+              <div>2</div>
+              <div>3</div>
+              <div>4</div>
+              <div>5</div>
+              <div>6</div>
+              <div>7</div>
+            </div>
+
+            <!-- Syntax Highlighted Display Area -->
+            <div class="editor-content-area" id="editorContentArea"></div>
+
+            <!-- Native Interactive Textarea with Prominent Blue Caret -->
+            <textarea class="editor-code-input" id="editorCodeInput" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          </div>
+
+          <!-- Editor Footer Status Bar -->
+          <div class="editor-footer">
+            <div class="editor-stats">
+              <span id="statLnCol">Ln 5, Col 14</span>
+              <span class="stat-sep">|</span>
+              <span id="statLines">7 lines</span>
+              <span class="stat-sep">|</span>
+              <span id="statChars">74 characters</span>
+            </div>
+
+            <div class="auto-indent-wrap">
+              <span>Auto-indent: ON</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggleAutoIndent" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Execution Panel / Terminal Card -->
+        <div class="terminal-card">
+          <!-- Terminal Tabs Header -->
+          <div class="terminal-header">
+            <div class="terminal-tabs">
+              <button class="terminal-tab-btn active" data-term-tab="terminal">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 17 10 11 4 5"></polyline>
+                  <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+                <span>Terminal</span>
+              </button>
+              <button class="terminal-tab-btn" data-term-tab="input">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <line x1="6" y1="8" x2="6" y2="8"></line>
+                  <line x1="10" y1="8" x2="10" y2="8"></line>
+                  <line x1="14" y1="8" x2="14" y2="8"></line>
+                  <line x1="18" y1="8" x2="18" y2="8"></line>
+                  <line x1="6" y1="12" x2="18" y2="12"></line>
+                  <line x1="8" y1="16" x2="16" y2="16"></line>
+                </svg>
+                <span>Input</span>
+              </button>
+              <button class="terminal-tab-btn" data-term-tab="output">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <span>Output</span>
+              </button>
+              <button class="terminal-tab-btn" data-term-tab="problems">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span id="problemsTabCount">Problems (0)</span>
+              </button>
+            </div>
+
+            <!-- Terminal Status & Tools -->
+            <div class="terminal-controls">
+              <span class="terminal-status-badge ready" id="terminalStatusBadge">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span id="terminalStatusText">Ready</span>
+              </span>
+              <button class="btn-terminal-clear" id="btnTerminalClear" title="Clear Terminal Log">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab 1: Interactive Terminal -->
+          <div class="terminal-body terminal-tab-view active" id="termViewTerminal">
+            <div class="term-log-stream" id="termLogStream">
+              <div class="term-header-line">NRG ENGINE TERMINAL &nbsp;/&nbsp; REAL COMPILER</div>
+              <div class="term-meta-line">Environment: Judge0 Sandbox &bull; Ready for execution</div>
+            </div>
+            
+            <!-- Interactive Command Line -->
+            <div class="term-prompt-line">
+              <span class="term-prompt-prefix">nrg-engine $</span>
+              <input type="text" class="term-prompt-input" id="termPromptInput" placeholder="Press 'Run Code' or type 'run'..." autocomplete="off" spellcheck="false">
+              <span class="cursor-block"></span>
+            </div>
+          </div>
+
+          <!-- Tab 2: Standard Input (stdin) -->
+          <div class="terminal-body terminal-tab-view" id="termViewInput">
+            <div class="term-header-line">PROGRAM STANDARD INPUT (STDIN)</div>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:8px;">Enter input values to feed into your program at runtime (e.g. for scanf, cin, input(), etc.):</p>
+            <textarea class="stdin-input-box" id="stdinInput" placeholder="Enter standard input (stdin) parameters here..."></textarea>
+          </div>
+
+          <!-- Tab 3: Pure Output -->
+          <div class="terminal-body terminal-tab-view" id="termViewOutput">
+            <div class="term-header-line">STANDARD OUTPUT STREAM (STDOUT)</div>
+            <pre id="stdoutView" style="margin-top:8px; font-family:inherit; color:var(--text-main); white-space:pre-wrap;">[No program execution output yet. Click 'Run Code' to execute.]</pre>
+          </div>
+
+          <!-- Tab 4: Diagnostics / Problems -->
+          <div class="terminal-body terminal-tab-view" id="termViewProblems">
+            <div class="term-header-line">PROBLEMS & DIAGNOSTICS</div>
+            <div id="problemsListContainer">
+              <div class="problems-empty-state">
+                <span>✓</span> <span>No syntax errors or compilation warnings detected.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================================================================
+           C. RIGHT COLUMN: LANGUAGES & ACTIONS (Active when 'editor' is open)
+           ================================================================ -->
+      <aside class="right-col" id="viewRightEditor">
+
+        <!-- Languages Panel -->
+        <div class="languages-card">
+          <div class="panel-section-title">Languages</div>
+          
+          <div class="languages-list" id="languagesList">
+            <!-- 1. C (Active) -->
+            <div class="lang-item active" data-lang="c">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#0066ff;">C</span>
+                <span class="lang-name">C</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 2. C++ -->
+            <div class="lang-item" data-lang="cpp">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#0066ff;">C++</span>
+                <span class="lang-name">C++</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 3. Java -->
+            <div class="lang-item" data-lang="java">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#ef4444;">☕</span>
+                <span class="lang-name">Java</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 4. Python -->
+            <div class="lang-item" data-lang="python">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:linear-gradient(135deg, #0284c7 50%, #eab308 50%);">🐍</span>
+                <span class="lang-name">Python</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 5. JavaScript -->
+            <div class="lang-item" data-lang="javascript">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#eab308; color:#000;">JS</span>
+                <span class="lang-name">JavaScript</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 6. C# -->
+            <div class="lang-item" data-lang="csharp">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#7c3aed;">C#</span>
+                <span class="lang-name">C#</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 7. Go -->
+            <div class="lang-item" data-lang="go">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#06b6d4;">-GO</span>
+                <span class="lang-name">Go</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 8. Rust -->
+            <div class="lang-item" data-lang="rust">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#b45309;">⚙</span>
+                <span class="lang-name">Rust</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 9. PHP -->
+            <div class="lang-item" data-lang="php">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:#6366f1;">php</span>
+                <span class="lang-name">PHP</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+
+            <!-- 10. Kotlin -->
+            <div class="lang-item" data-lang="kotlin">
+              <div class="lang-meta">
+                <span class="lang-icon-badge" style="background:linear-gradient(135deg, #a855f7, #ec4899);">K</span>
+                <span class="lang-name">Kotlin</span>
+              </div>
+              <svg class="lang-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="actions-card">
+          <div class="panel-section-title">Actions</div>
+
+          <!-- 1. Run Code -->
+          <button class="action-btn action-btn-primary" id="btnActionRun">
+            <div class="btn-left-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Run Code</span>
+            </div>
+            <span class="action-shortcut">Ctrl + Enter</span>
+          </button>
+
+          <!-- 2. Reset -->
+          <button class="action-btn" id="btnActionReset">
+            <div class="btn-left-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span>Reset</span>
+            </div>
+            <span class="action-shortcut">Ctrl + R</span>
+          </button>
+
+          <!-- 3. Format Code -->
+          <button class="action-btn" id="btnActionFormat">
+            <div class="btn-left-content">
+              <span style="font-family:var(--font-mono); font-weight:700; font-size:14px;">{}</span>
+              <span>Format Code</span>
+            </div>
+            <span class="action-shortcut">Ctrl + Shift + F</span>
+          </button>
+        </div>
+
+      </aside>
+
+      <!-- ================================================================
+           D. FULL SECTIONS (Home, Projects, Templates, Snippets, Collab, Settings)
+           ================================================================ -->
+
+      <!-- 1. HOME VIEW -->
+      <section class="section-full-view" id="sectionHome">
+        <div class="section-glass-card">
+          <div class="home-banner">
+            <div class="home-banner-text">
+              <h2>Welcome back, Tanmay! 👋</h2>
+              <p>Pick up where you left off or start a new high-performance coding project.</p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="glass-btn glass-btn-primary" id="homeBtnGoEditor">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                <span>Launch Editor</span>
+              </button>
+              <button class="glass-btn" id="homeBtnNewProj">
+                <span>+ New Project</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Activity Stats Row -->
+          <div class="home-stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Coding Streak</span>
+              <span class="stat-val">14 Days 🔥</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Active Projects</span>
+              <span class="stat-val" id="homeStatProjectsCount">4</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Code Snippets</span>
+              <span class="stat-val" id="homeStatSnippetsCount">6</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Compiler Engine</span>
+              <span class="stat-val" style="font-size:16px; margin-top:4px;">10 Online 🟢</span>
+            </div>
+          </div>
+
+          <!-- Recent Projects -->
+          <div class="section-header-row" style="margin-top:6px;">
+            <div>
+              <h3 style="font-size:16px; font-weight:700;">Recent Projects</h3>
+              <p class="section-subtext">Click to load any project directly into the Editor</p>
+            </div>
+            <button class="glass-btn" id="homeBtnViewAllProjects">View All Projects ↗</button>
+          </div>
+
+          <div class="grid-cards" id="homeRecentProjectsGrid"></div>
+
+          <!-- Recent Files Quick List -->
+          <div class="section-header-row" style="margin-top:8px;">
+            <h3 style="font-size:16px; font-weight:700;">Quick Files</h3>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;" id="homeQuickFilesRow"></div>
+        </div>
+      </section>
+
+      <!-- 2. PROJECTS MANAGER VIEW -->
+      <section class="section-full-view" id="sectionProjects">
+        <div class="section-glass-card">
+          <div class="section-header-row">
+            <div>
+              <h2 class="section-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>Project Manager</span>
+              </h2>
+              <p class="section-subtext">Manage, create, rename, and load your cloud workspace projects</p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <input type="text" class="form-input" id="searchProjectsInput" placeholder="Filter projects..." style="width:200px;">
+              <button class="glass-btn glass-btn-primary" id="btnCreateNewProject">+ Create Project</button>
+            </div>
+          </div>
+
+          <div class="grid-cards" id="projectsCardsGrid" style="margin-top:4px;"></div>
+        </div>
+      </section>
+
+      <!-- 3. TEMPLATES VIEW -->
+      <section class="section-full-view" id="sectionTemplates">
+        <div class="section-glass-card">
+          <div class="section-header-row">
+            <div>
+              <h2 class="section-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                <span>Starter Templates & Algorithms</span>
+              </h2>
+              <p class="section-subtext">Instant ready-made boilerplates for all 10 supported languages</p>
+            </div>
+            <div style="display:flex; gap:8px;" id="templatesFilterGroup">
+              <button class="glass-btn active" data-filter="all">All</button>
+              <button class="glass-btn" data-filter="systems">C / C++ / Rust</button>
+              <button class="glass-btn" data-filter="web">Web & Python</button>
+              <button class="glass-btn" data-filter="backend">Backend & Mobile</button>
+            </div>
+          </div>
+
+          <div class="grid-cards" id="templatesCardsGrid" style="margin-top:4px;"></div>
+        </div>
+      </section>
+
+      <!-- 4. SNIPPETS VIEW -->
+      <section class="section-full-view" id="sectionSnippets">
+        <div class="section-glass-card">
+          <div class="section-header-row">
+            <div>
+              <h2 class="section-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                <span>Code Snippets Library</span>
+              </h2>
+              <p class="section-subtext">Save, search, copy, and inject reusable algorithms and routines</p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <input type="text" class="form-input" id="searchSnippetsInput" placeholder="Search snippets..." style="width:220px;">
+              <button class="glass-btn glass-btn-primary" id="btnCreateNewSnippet">+ New Snippet</button>
+            </div>
+          </div>
+
+          <div class="grid-cards" id="snippetsCardsGrid" style="margin-top:4px;"></div>
+        </div>
+      </section>
+
+      <!-- 5. COLLABORATE VIEW -->
+      <section class="section-full-view" id="sectionCollaborate">
+        <div class="section-glass-card">
+          <div class="section-header-row">
+            <div>
+              <h2 class="section-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <span>Live Collaboration Studio</span>
+              </h2>
+              <p class="section-subtext">Real-time room session, shared cursor indicators, and team scratchpad</p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span style="font-size:12px; font-weight:700; color:#16a34a; background:var(--success-bg); padding:4px 12px; border-radius:9999px;">● Active Room: NRG-8821</span>
+              <button class="glass-btn" id="btnCopyInviteLink">Copy Invite Link</button>
+              <button class="glass-btn glass-btn-primary" id="btnSyncCodeToCollab">Sync Editor Code</button>
+            </div>
+          </div>
+
+          <div class="collab-grid">
+            <!-- Collaborators Roster -->
+            <div class="collab-roster">
+              <span class="panel-section-title">Connected Developers (3)</span>
+              
+              <div class="collab-user-row" style="background:rgba(0,102,255,0.08);">
+                <div class="collab-avatar" style="border-color:#0066ff; background:#0066ff; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">TV</div>
+                <div>
+                  <div style="font-size:13px; font-weight:700;">Tanmay Verma (You)</div>
+                  <div style="font-size:11px; color:var(--primary-blue);">Host • Line 5</div>
+                </div>
+              </div>
+
+              <div class="collab-user-row">
+                <div class="collab-avatar" style="border-color:#06b6d4; background:#06b6d4; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">AC</div>
+                <div>
+                  <div style="font-size:13px; font-weight:700;">Alex Chen</div>
+                  <div style="font-size:11px; color:#06b6d4;">Collaborator • Line 14</div>
+                </div>
+              </div>
+
+              <div class="collab-user-row">
+                <div class="collab-avatar" style="border-color:#10b981; background:#10b981; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">ER</div>
+                <div>
+                  <div style="font-size:13px; font-weight:700;">Elena Rostova</div>
+                  <div style="font-size:11px; color:#10b981;">Reviewer • Line 1</div>
+                </div>
+              </div>
+
+              <div style="margin-top:auto; padding-top:12px; border-top:1px solid var(--pill-border);">
+                <span class="stat-label">Session Bandwidth</span>
+                <div style="font-size:12px; font-weight:600; color:var(--text-secondary); margin-top:2px;">Peer-to-Peer WebRTC: 24 ms ping</div>
+              </div>
+            </div>
+
+            <!-- Chat & Scratchpad -->
+            <div class="collab-chat-pane">
+              <div class="collab-chat-messages" id="collabMessagesContainer">
+                <div class="chat-bubble theirs">
+                  <strong>Alex Chen:</strong> Hey Tanmay, I just reviewed your C memory buffer. The allocation looks spotless!
+                </div>
+                <div class="chat-bubble theirs">
+                  <strong>Elena Rostova:</strong> Ready to compile and benchmark on the simulated cluster whenever you are.
+                </div>
+                <div class="chat-bubble mine">
+                  Sounds great! I'm running the simulation now with zero exit codes.
+                </div>
+              </div>
+
+              <form id="collabChatForm" style="display:flex; gap:8px;">
+                <input type="text" class="form-input" id="collabChatInput" placeholder="Send a message to collaborators..." style="flex:1;">
+                <button type="submit" class="glass-btn glass-btn-primary">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. SETTINGS VIEW -->
+      <section class="section-full-view" id="sectionSettings">
+        <div class="section-glass-card">
+          <div class="section-header-row">
+            <div>
+              <h2 class="section-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Preferences & System Settings</span>
+              </h2>
+              <p class="section-subtext">Customize themes, typography, editor behaviors, and shortcuts</p>
+            </div>
+            <button class="glass-btn" id="btnOpenDesignSystemModal">About & Architecture ℹ</button>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:14px; margin-top:4px;">
+            <!-- Appearance -->
+            <div class="settings-section-card">
+              <span class="panel-section-title">Appearance & Color Theme</span>
+              <div class="settings-row">
+                <div class="settings-row-text">
+                  <h4>Glassmorphic Color Theme</h4>
+                  <p>Choose between light frosted glass, cyber obsidian, or midnight cobalt</p>
+                </div>
+                <div class="theme-picker-group">
+                  <div class="theme-card-option active" data-theme="light">Light Glass</div>
+                  <div class="theme-card-option" data-theme="dark">Cyber Obsidian</div>
+                  <div class="theme-card-option" data-theme="midnight">Midnight Cobalt</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Editor Preferences -->
+            <div class="settings-section-card">
+              <span class="panel-section-title">Editor Preferences</span>
+
+              <!-- Font Size -->
+              <div class="settings-row">
+                <div class="settings-row-text">
+                  <h4>Font Size</h4>
+                  <p>Adjust code editor text scaling</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <input type="range" id="settingFontSizeRange" min="12" max="20" step="0.5" value="14.5" style="width:130px; cursor:pointer;">
+                  <span id="settingFontSizeLabel" style="font-weight:700; font-size:13px; width:45px;">14.5px</span>
+                </div>
+              </div>
+
+              <!-- Font Family -->
+              <div class="settings-row">
+                <div class="settings-row-text">
+                  <h4>Monospace Font Family</h4>
+                  <p>Select developer typeface</p>
+                </div>
+                <select class="form-input" id="settingFontFamilySelect" style="width:160px; padding:4px 8px;">
+                  <option value="'Consolas', monospace">Consolas</option>
+                  <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                  <option value="'Fira Code', monospace">Fira Code</option>
+                  <option value="'SF Mono', monospace">SF Mono</option>
+                </select>
+              </div>
+
+              <!-- Tab Size -->
+              <div class="settings-row">
+                <div class="settings-row-text">
+                  <h4>Indentation Spacing</h4>
+                  <p>Number of spaces for tab key</p>
+                </div>
+                <select class="form-input" id="settingTabSizeSelect" style="width:120px; padding:4px 8px;">
+                  <option value="4">4 spaces</option>
+                  <option value="2">2 spaces</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Table -->
+            <div class="settings-section-card">
+              <span class="panel-section-title">Keyboard Shortcuts Map</span>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px;">
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Run Program</span>
+                  <span class="action-shortcut">Ctrl + Enter</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Reset Template</span>
+                  <span class="action-shortcut">Ctrl + R</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Format Document</span>
+                  <span class="action-shortcut">Ctrl + Shift + F</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Global Search</span>
+                  <span class="action-shortcut">Ctrl + K</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Save File</span>
+                  <span class="action-shortcut">Ctrl + S</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 10px; background:var(--pill-bg); border-radius:8px;">
+                  <span>Toggle Fullscreen</span>
+                  <span class="action-shortcut">F11</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ====================================================================
+       11. MODALS & POPUPS
+       ==================================================================== -->
+  <!-- Create Project Modal -->
+  <div class="modal-overlay" id="modalCreateProject">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Create New Project</h3>
+        <button class="nav-btn" style="width:30px; height:30px;" id="btnCloseProjectModal">✕</button>
+      </div>
+      <form id="formNewProject">
+        <div class="form-group">
+          <label>Project Name</label>
+          <input type="text" class="form-input" id="inputNewProjectName" placeholder="e.g., neural-network-core" required>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>Primary Language</label>
+          <select class="form-input" id="selectNewProjectLang">
+            <option value="c">C (GCC)</option>
+            <option value="cpp">C++ (Clang)</option>
+            <option value="python">Python 3.12</option>
+            <option value="javascript">JavaScript (Node.js)</option>
+            <option value="java">Java 21</option>
+            <option value="rust">Rust 1.78</option>
+            <option value="go">Go 1.22</option>
+            <option value="csharp">C# (.NET 8)</option>
+            <option value="php">PHP 8.3</option>
+            <option value="kotlin">Kotlin</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+          <button type="button" class="glass-btn" id="btnCancelProjectModal">Cancel</button>
+          <button type="submit" class="glass-btn glass-btn-primary">Create & Open in Editor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Snippet Modal -->
+  <div class="modal-overlay" id="modalCreateSnippet">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Code Snippet</h3>
+        <button class="nav-btn" style="width:30px; height:30px;" id="btnCloseSnippetModal">✕</button>
+      </div>
+      <form id="formNewSnippet">
+        <div class="form-group">
+          <label>Snippet Title</label>
+          <input type="text" class="form-input" id="inputSnippetTitle" placeholder="e.g., Fast Matrix Multiplication" required>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label>Language</label>
+          <select class="form-input" id="selectSnippetLang">
+            <option value="c">C</option>
+            <option value="cpp">C++</option>
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="rust">Rust</option>
+            <option value="go">Go</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label>Code Snippet</label>
+          <textarea class="form-input" id="textareaSnippetCode" style="height:120px; font-family:var(--font-mono); font-size:12px; resize:none;" placeholder="// Paste your snippet code here..." required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+          <button type="button" class="glass-btn" id="btnCancelSnippetModal">Cancel</button>
+          <button type="submit" class="glass-btn glass-btn-primary">Save Snippet</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Command Palette Modal (Ctrl + K) -->
+  <div class="modal-overlay" id="paletteModal">
+    <div class="modal-dialog" style="max-width:560px; padding:0;">
+      <div style="display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--glass-panel-border); gap:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="search-input" id="paletteSearchInput" placeholder="Type a command or jump to section..." autofocus>
+        <span class="search-shortcut">ESC</span>
+      </div>
+      <ul style="max-height:300px; overflow-y:auto; padding:8px; list-style:none;" id="paletteList">
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-editor">
+          <div style="font-weight:600; font-size:13.5px;">💻 Switch to Editor</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="run">
+          <div style="font-weight:600; font-size:13.5px;">▶ Run Code (Ctrl + Enter)</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-projects">
+          <div style="font-weight:600; font-size:13.5px;">📁 Open Projects Dashboard</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-templates">
+          <div style="font-weight:600; font-size:13.5px;">⚡ Explore Starter Templates</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-snippets">
+          <div style="font-weight:600; font-size:13.5px;">🔖 Open Snippets Library</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-collab">
+          <div style="font-weight:600; font-size:13.5px;">👥 Live Collaboration Studio</div>
+        </li>
+        <li class="item-card" style="padding:8px 12px; cursor:pointer;" data-action="nav-settings">
+          <div style="font-weight:600; font-size:13.5px;">⚙ Open Preferences & Settings</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Architecture & Design System Modal -->
+  <div class="modal-overlay" id="overviewModal">
+    <div class="modal-dialog" style="max-width:840px;">
+      <div class="modal-header">
+        <h3 class="modal-title">NRG ENGINE – Architecture & Design System</h3>
+        <button class="nav-btn" style="width:30px; height:30px;" id="btnCloseOverview">✕</button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:6px;">
+        <div class="stat-card" style="padding:14px;">
+          <h4 style="font-size:13.5px; font-weight:700; color:var(--primary-blue); margin-bottom:8px;">🎨 Design System</h4>
+          <ul style="font-size:12px; line-height:20px; color:var(--text-secondary); padding-left:14px;">
+            <li>Glassmorphism UI (frosted translucent surfaces)</li>
+            <li>Rounded, spacious components</li>
+            <li>Subtle blue gradients & ambient lighting</li>
+            <li>Clean, modern, and professional layout</li>
+          </ul>
+        </div>
+        <div class="stat-card" style="padding:14px;">
+          <h4 style="font-size:13.5px; font-weight:700; color:var(--primary-blue); margin-bottom:8px;">⚡ Key Highlights</h4>
+          <ul style="font-size:12px; line-height:20px; color:var(--text-secondary); padding-left:14px;">
+            <li>Bigger editor workspace for focused coding</li>
+            <li>Integrated terminal & execution diagnostics</li>
+            <li>10+ programming languages supported</li>
+            <li>Real-time keyboard shortcuts</li>
+          </ul>
+        </div>
+        <div class="stat-card" style="padding:14px;">
+          <h4 style="font-size:13.5px; font-weight:700; color:var(--primary-blue); margin-bottom:8px;">🎯 Use Cases</h4>
+          <ul style="font-size:12px; line-height:20px; color:var(--text-secondary); padding-left:14px;">
+            <li>Learning & algorithmic practice</li>
+            <li>College & academic coding labs</li>
+            <li>Project development & prototyping</li>
+            <li>Instant snippet testing & validation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Bar -->
+  <div class="toast-notice" id="toastNotice">Notification</div>
+
+  <!-- ====================================================================
+       12. SCRIPT ENGINE & LOGIC
+       ==================================================================== -->
+  <script>
+    // Embedded Tanmay Verma Avatar Base64 Fallback
+    const TANMAY_AVATAR_B64 = 'data:image/png;base64,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';
+
+    // 1. Language Definitions & Starter Templates
+    const LANGUAGES = {
+      c: {
+        id: 'c',
+        name: 'C',
+        badge: 'C',
+        badgeBg: '#0066ff',
+        compiler: 'C (GCC 14.1.0)',
+        file: 'main.c',
+        template: `#include <stdio.h>
+
+int main() {
+    printf("Hello, NRG Engine!\\n");
+    return 0;
+}`
+      },
+      cpp: {
+        id: 'cpp',
+        name: 'C++',
+        badge: 'C++',
+        badgeBg: '#0066ff',
+        compiler: 'C++ (GCC 14.1.0)',
+        file: 'main.cpp',
+        template: `#include <iostream>
+
+int main() {
+    std::cout << "Hello, NRG Engine from C++!" << std::endl;
+    return 0;
+}`
+      },
+      java: {
+        id: 'java',
+        name: 'Java',
+        badge: '☕',
+        badgeBg: '#ef4444',
+        compiler: 'Java (JDK 17.0.6)',
+        file: 'Main.java',
+        template: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, NRG Engine from Java!");
+    }
+}`
+      },
+      python: {
+        id: 'python',
+        name: 'Python',
+        badge: '🐍',
+        badgeBg: 'linear-gradient(135deg, #0284c7 50%, #eab308 50%)',
+        compiler: 'Python (3.12.5)',
+        file: 'main.py',
+        template: `def main():
+    print("Hello, NRG Engine from Python!")
+
+if __name__ == "__main__":
+    main()`
+      },
+      javascript: {
+        id: 'javascript',
+        name: 'JavaScript',
+        badge: 'JS',
+        badgeBg: '#eab308',
+        compiler: 'JavaScript (Node.js 22.08)',
+        file: 'script.js',
+        template: `function main() {
+    console.log("Hello, NRG Engine from JavaScript!");
+}
+
+main();`
+      },
+      csharp: {
+        id: 'csharp',
+        name: 'C#',
+        badge: 'C#',
+        badgeBg: '#7c3aed',
+        compiler: 'C# (Mono 6.6.0)',
+        file: 'Program.cs',
+        template: `using System;
+
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello, NRG Engine from C#!");
+    }
+}`
+      },
+      go: {
+        id: 'go',
+        name: 'Go',
+        badge: '-GO',
+        badgeBg: '#06b6d4',
+        compiler: 'Go (1.23.5)',
+        file: 'main.go',
+        template: `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, NRG Engine from Go!")
+}`
+      },
+      rust: {
+        id: 'rust',
+        name: 'Rust',
+        badge: '⚙',
+        badgeBg: '#b45309',
+        compiler: 'Rust (rustc 1.85.0)',
+        file: 'main.rs',
+        template: `fn main() {
+    println!("Hello, NRG Engine from Rust!");
+}`
+      },
+      php: {
+        id: 'php',
+        name: 'PHP',
+        badge: 'php',
+        badgeBg: '#6366f1',
+        compiler: 'PHP (8.3.11)',
+        file: 'index.php',
+        template: `<?php
+echo "Hello, NRG Engine from PHP!\\n";
+?>`
+      },
+      kotlin: {
+        id: 'kotlin',
+        name: 'Kotlin',
+        badge: 'K',
+        badgeBg: 'linear-gradient(135deg, #a855f7, #ec4899)',
+        compiler: 'Kotlin (2.1.10)',
+        file: 'Main.kt',
+        template: `fun main() {
+    println("Hello, NRG Engine from Kotlin!")
+}`
+      }
+    };
+
+    // State Variables
+    let currentLang = 'c';
+    let currentCode = LANGUAGES.c.template;
+    let activeLineNumber = 5;
+
+    // LocalStorage Projects Database
+    let projectsData = JSON.parse(localStorage.getItem('nrg_projects') || 'null') || [
+      { id: 'p1', name: 'nrg-kernel-c', lang: 'c', file: 'main.c', filesCount: 3, updated: '2 hours ago', code: LANGUAGES.c.template },
+      { id: 'p2', name: 'python-algo-ml', lang: 'python', file: 'main.py', filesCount: 4, updated: 'Yesterday', code: LANGUAGES.python.template },
+      { id: 'p3', name: 'rust-crypto-cli', lang: 'rust', file: 'main.rs', filesCount: 2, updated: '3 days ago', code: LANGUAGES.rust.template },
+      { id: 'p4', name: 'web-canvas-engine', lang: 'javascript', file: 'script.js', filesCount: 5, updated: '5 days ago', code: LANGUAGES.javascript.template }
+    ];
+
+    // LocalStorage Snippets Database
+    let snippetsData = JSON.parse(localStorage.getItem('nrg_snippets') || 'null') || [
+      { id: 's1', title: 'Fast I/O & Competitive Setup', lang: 'c', tags: ['io', 'dsa'], code: '#include <stdio.h>\n\nvoid fast_io() {\n    setvbuf(stdin, NULL, _IONBF, 0);\n}' },
+      { id: 's2', title: 'Binary Search with Boundary Clamp', lang: 'cpp', tags: ['binary-search', 'algo'], code: 'int binarySearch(int arr[], int l, int r, int x) {\n    while (l <= r) {\n        int m = l + (r - l) / 2;\n        if (arr[m] == x) return m;\n        if (arr[m] < x) l = m + 1;\n        else r = m - 1;\n    }\n    return -1;\n}' },
+      { id: 's3', title: 'Async Timing Benchmark Decorator', lang: 'python', tags: ['decorator', 'profiler'], code: 'import time\n\ndef benchmark(func):\n    def wrapper(*args, **kwargs):\n        start = time.perf_counter()\n        res = func(*args, **kwargs)\n        print(f"Elapsed: {time.perf_counter() - start:.5f}s")\n        return res\n    return wrapper' },
+      { id: 's4', title: 'High-Performance Debounce', lang: 'javascript', tags: ['utility', 'events'], code: 'function debounce(fn, delay = 250) {\n    let timer;\n    return (...args) => {\n        clearTimeout(timer);\n        timer = setTimeout(() => fn(...args), delay);\n    };\n}' },
+      { id: 's5', title: 'Concurrent Worker Pool Channel', lang: 'go', tags: ['concurrency', 'channels'], code: 'func worker(id int, jobs <-chan int, results chan<- int) {\n    for j := range jobs {\n        results <- j * 2\n    }\n}' },
+      { id: 's6', title: 'Safe Memory Buffer Slice', lang: 'rust', tags: ['memory', 'safety'], code: 'pub struct SafeBuffer {\n    data: Vec<u8>,\n}\nimpl SafeBuffer {\n    pub fn new(cap: usize) -> Self {\n        Self { data: Vec::with_capacity(cap) }\n    }\n}' }
+    ];
+
+    // Starter Templates Collection
+    const TEMPLATES_CATALOG = [
+      { id: 't1', title: 'C Linked List & Binary Search Tree', lang: 'c', cat: 'systems', desc: 'Complete pointer-based dynamic memory data structures with search & traversal routines.', code: '#include <stdio.h>\n#include <stdlib.h>\n\ntypedef struct Node {\n    int val;\n    struct Node* next;\n} Node;\n\nint main() {\n    Node* head = (Node*)malloc(sizeof(Node));\n    head->val = 42;\n    head->next = NULL;\n    printf("Linked list node initialized: %d\\n", head->val);\n    free(head);\n    return 0;\n}' },
+      { id: 't2', title: 'C++ Modern OOP Framework', lang: 'cpp', cat: 'systems', desc: 'Object-oriented architecture with smart pointers, vectors, and polymorphic methods.', code: '#include <iostream>\n#include <vector>\n#include <memory>\n\nclass Engine {\npublic:\n    virtual void boot() { std::cout << "NRG Engine C++ Core Online!\\n"; }\n};\n\nint main() {\n    auto engine = std::make_unique<Engine>();\n    engine->boot();\n    return 0;\n}' },
+      { id: 't3', title: 'Python Machine Learning & Matrix Pipeline', lang: 'python', cat: 'web', desc: 'Pure algorithmic matrix multiplication and regression optimization loop.', code: 'def matrix_multiply(a, b):\n    return [[sum(i * j for i, j in zip(row, col)) for col in zip(*b)] for row in a]\n\ndef main():\n    A = [[1, 2], [3, 4]]\n    B = [[5, 6], [7, 8]]\n    print("Matrix Dot Product Result:", matrix_multiply(A, B))\n\nif __name__ == "__main__":\n    main()' },
+      { id: 't4', title: 'JavaScript 60FPS Canvas Physics Simulation', lang: 'javascript', cat: 'web', desc: 'Interactive particle loop with delta-timing, friction damping, and gravity.', code: 'class Particle {\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n        this.vx = (Math.random() - 0.5) * 4;\n        this.vy = -Math.random() * 5;\n    }\n    update() { this.x += this.vx; this.y += this.vy; }\n}\nconsole.log("60FPS Physics Engine Ready!");' },
+      { id: 't5', title: 'Rust Zero-Cost Concurrency & CLI', lang: 'rust', cat: 'systems', desc: 'Thread pooling, error handling with Result, and zero-allocation memory safety.', code: 'use std::thread;\n\nfn main() {\n    let handle = thread::spawn(|| {\n        "NRG Worker thread execution complete."\n    });\n    println!("{}", handle.join().unwrap());\n}' },
+      { id: 't6', title: 'Go Microservice & JSON API Route', lang: 'go', cat: 'backend', desc: 'Lightweight concurrent HTTP router with JSON marshaling and health probes.', code: 'package main\n\nimport "fmt"\n\ntype Response struct {\n    Status  string\n    Version string\n}\n\nfunc main() {\n    resp := Response{Status: "Online", Version: "1.0.4"}\n    fmt.Printf("NRG Microservice Ready: %+v\\n", resp)\n}' }
+    ];
+
+    // DOM Elements
+    const codeInput = document.getElementById('editorCodeInput');
+    const contentArea = document.getElementById('editorContentArea');
+    const lineNumbersGutter = document.getElementById('editorLineNumbers');
+    const statLnCol = document.getElementById('statLnCol');
+    const statLines = document.getElementById('statLines');
+    const statChars = document.getElementById('statChars');
+    const tabFilename = document.getElementById('tabFilename');
+    const tabLangIcon = document.getElementById('tabLangIcon');
+    const breadcrumbFilename = document.getElementById('breadcrumbFilename');
+    const compilerBadgeIcon = document.getElementById('compilerBadgeIcon');
+    const compilerLabelText = document.getElementById('compilerLabelText');
+    const termOutputText = document.getElementById('termOutputText');
+    const stdoutView = document.getElementById('stdoutView');
+    const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+    const terminalStatusText = document.getElementById('terminalStatusText');
+    const termPromptInput = document.getElementById('termPromptInput');
+    const avatarImg = document.getElementById('tanmayAvatarImg');
+    const toastNotice = document.getElementById('toastNotice');
+
+    // Setup base64 avatar
+    if (avatarImg) {
+      avatarImg.src = TANMAY_AVATAR_B64;
+    }
+
+    // Toast Notice Trigger
+    function showToast(msg) {
+      toastNotice.textContent = msg;
+      toastNotice.classList.add('show');
+      setTimeout(() => {
+        toastNotice.classList.remove('show');
+      }, 2400);
+    }
+
+    // ==========================================================================
+    // Robust Lexer & Syntax Highlighter (Bug-Free Tokenizer)
+    // ==========================================================================
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function highlightSyntax(code, langId) {
+      const lines = code.split('\n');
+      return lines.map((line, idx) => {
+        if (!line) {
+          const isCur = (idx + 1) === activeLineNumber;
+          return `<div class="editor-line ${isCur ? 'active-line' : ''}" data-line="${idx + 1}">&nbsp;</div>`;
+        }
+
+        // Dedicated Regex Token Scanner
+        const tokenRegex = /(#include\s+<[^>]+>|#include|<[^>]+>|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/.*|\b(?:int|void|return|public|class|static|def|function|fn|fun|echo|using|namespace|package|import|std::cout|std::endl)\b|\b(?:printf|println|print|cout|main)\b|\b\d+\b|[{}();,]|[\w]+|\s+|[^\s\w]+)/g;
+
+        let tokensHtml = '';
+        let match;
+
+        while ((match = tokenRegex.exec(line)) !== null) {
+          const tok = match[0];
+
+          if (tok.startsWith('#include')) {
+            const parts = tok.split(/\s+/);
+            tokensHtml += `<span class="syn-preproc">${escapeHtml(parts[0])}</span> <span class="syn-string">${escapeHtml(parts.slice(1).join(' '))}</span>`;
+          } else if (tok.startsWith('<') && tok.endsWith('>')) {
+            tokensHtml += `<span class="syn-string">${escapeHtml(tok)}</span>`;
+          } else if (tok.startsWith('"') || tok.startsWith("'")) {
+            tokensHtml += `<span class="syn-string">${escapeHtml(tok)}</span>`;
+          } else if (tok.startsWith('//')) {
+            tokensHtml += `<span class="syn-comment">${escapeHtml(tok)}</span>`;
+          } else if (/^(int|void|return|public|class|static|def|function|fn|fun|echo|using|namespace|package|import)$/.test(tok)) {
+            tokensHtml += `<span class="syn-keyword">${escapeHtml(tok)}</span>`;
+          } else if (/^(printf|println|print|main)$/.test(tok)) {
+            tokensHtml += `<span class="syn-func">${escapeHtml(tok)}</span>`;
+          } else if (/^\d+$/.test(tok)) {
+            tokensHtml += `<span class="syn-number">${escapeHtml(tok)}</span>`;
+          } else {
+            tokensHtml += escapeHtml(tok);
+          }
+        }
+
+        const isCurrent = (idx + 1) === activeLineNumber;
+        return `<div class="editor-line ${isCurrent ? 'active-line' : ''}" data-line="${idx + 1}">${tokensHtml || '&nbsp;'}</div>`;
+      }).join('');
+    }
+
+    // Render Editor View
+    function updateEditorDisplay() {
+      const lines = currentCode.split('\n');
+      const totalLines = lines.length;
+      const totalChars = currentCode.length;
+
+      // Update Line Numbers Gutter
+      let gutterHtml = '';
+      for (let i = 1; i <= Math.max(totalLines, 7); i++) {
+        gutterHtml += `<div>${i}</div>`;
+      }
+      lineNumbersGutter.innerHTML = gutterHtml;
+
+      // Update Syntax Highlight Area
+      contentArea.innerHTML = highlightSyntax(currentCode, currentLang);
+
+      // Update Status Bar
+      statLines.textContent = `${totalLines} line${totalLines !== 1 ? 's' : ''}`;
+      statChars.textContent = `${totalChars} character${totalChars !== 1 ? 's' : ''}`;
+      statLnCol.textContent = `Ln ${activeLineNumber}, Col 14`;
+    }
+
+    // Sync input from textarea
+    codeInput.value = currentCode;
+    updateEditorDisplay();
+
+    codeInput.addEventListener('input', (e) => {
+      currentCode = e.target.value;
+      updateEditorDisplay();
+    });
+
+    // Caret Tracking & Line Highlighting
+    function calculateCaretPosition() {
+      const selStart = codeInput.selectionStart;
+      const textUpToCaret = codeInput.value.substring(0, selStart);
+      const lines = textUpToCaret.split('\n');
+      activeLineNumber = lines.length;
+      const colNumber = lines[lines.length - 1].length + 1;
+      statLnCol.textContent = `Ln ${activeLineNumber}, Col ${colNumber}`;
+      updateEditorDisplay();
+    }
+
+    codeInput.addEventListener('click', calculateCaretPosition);
+    codeInput.addEventListener('keyup', calculateCaretPosition);
+
+    // Synchronize Scrolling between Textarea, Highlight Layer, and Line Numbers
+    codeInput.addEventListener('scroll', () => {
+      contentArea.scrollTop = codeInput.scrollTop;
+      contentArea.scrollLeft = codeInput.scrollLeft;
+      lineNumbersGutter.scrollTop = codeInput.scrollTop;
+    });
+
+    // Clicking anywhere in editor body focuses textarea
+    document.getElementById('editorBodyWrap').addEventListener('click', () => {
+      codeInput.focus();
+    });
+
+    // Tab key support in textarea
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const tabSize = parseInt(document.getElementById('settingTabSizeSelect')?.value || '4');
+        const spaces = ' '.repeat(tabSize);
+        const start = codeInput.selectionStart;
+        const end = codeInput.selectionEnd;
+        codeInput.value = codeInput.value.substring(0, start) + spaces + codeInput.value.substring(end);
+        codeInput.selectionStart = codeInput.selectionEnd = start + tabSize;
+        currentCode = codeInput.value;
+        updateEditorDisplay();
+      }
+    });
+
+    // ==========================================================================
+    // Language Switching Mechanism
+    // ==========================================================================
+    function switchLanguage(langKey) {
+      if (!LANGUAGES[langKey]) return;
+      currentLang = langKey;
+      const langData = LANGUAGES[langKey];
+
+      tabFilename.textContent = langData.file;
+      breadcrumbFilename.textContent = langData.file;
+      tabLangIcon.textContent = langData.badge;
+      tabLangIcon.style.background = langData.badgeBg;
+
+      compilerBadgeIcon.textContent = langData.badge;
+      compilerBadgeIcon.style.background = langData.badgeBg;
+      compilerLabelText.textContent = langData.compiler;
+
+      currentCode = langData.template;
+      codeInput.value = currentCode;
+      activeLineNumber = langKey === 'c' ? 5 : 2;
+      updateEditorDisplay();
+
+      document.querySelectorAll('.lang-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.lang === langKey);
+      });
+
+      // Update terminal banner on language switch
+      const termLogStream = document.getElementById('termLogStream');
+      if (termLogStream) {
+        termLogStream.innerHTML = `
+          <div class="term-header-line">NRG ENGINE TERMINAL &nbsp;/&nbsp; REAL COMPILER</div>
+          <div class="term-meta-line">Active Environment: ${langData.compiler} &bull; Ready for execution</div>
+        `;
+      }
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      if (terminalStatusBadge && terminalStatusText) {
+        terminalStatusBadge.className = 'terminal-status-badge ready';
+        terminalStatusText.textContent = 'Ready';
+      }
+    }
+
+    document.querySelectorAll('.lang-item').forEach(item => {
+      item.addEventListener('click', () => {
+        switchLanguage(item.dataset.lang);
+        showToast(`Switched language to ${LANGUAGES[item.dataset.lang].name}`);
+      });
+    });
+
+    // ==========================================================================
+    // Real Multi-Language Compiler Engine (Judge0 Backend Integration)
+    // ==========================================================================
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function jumpToLineAndColumn(line, col) {
+      if (!line || line < 1) line = 1;
+      if (!col || col < 1) col = 1;
+
+      // Ensure Editor view is active
+      if (typeof navigateToSection === 'function') {
+        navigateToSection('editor');
+      }
+
+      const lines = codeInput.value.split('\n');
+      let charIdx = 0;
+      for (let i = 0; i < Math.min(line - 1, lines.length); i++) {
+        charIdx += lines[i].length + 1;
+      }
+      charIdx += Math.min(col - 1, (lines[line - 1] || '').length);
+
+      codeInput.focus();
+      codeInput.setSelectionRange(charIdx, charIdx);
+
+      activeLineNumber = line;
+      statLnCol.textContent = `Ln ${line}, Col ${col}`;
+      updateEditorDisplay();
+
+      const lineHeight = 21;
+      const targetScroll = Math.max(0, (line - 5) * lineHeight);
+      codeInput.scrollTop = targetScroll;
+
+      showToast(`Navigated to Line ${line}, Column ${col}`);
+    }
+
+    async function executeRealCode() {
+      const btnActionRun = document.getElementById('btnActionRun');
+      const btnEditorRun = document.getElementById('btnEditorRun');
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      const termLogStream = document.getElementById('termLogStream');
+      const stdoutView = document.getElementById('stdoutView');
+      const stdinInput = document.getElementById('stdinInput');
+      const problemsTabCount = document.getElementById('problemsTabCount');
+      const problemsListContainer = document.getElementById('problemsListContainer');
+      const termBody = document.getElementById('termViewTerminal');
+
+      const stdinValue = stdinInput ? stdinInput.value : '';
+
+      // Update UI to running state
+      terminalStatusBadge.className = 'terminal-status-badge running';
+      terminalStatusText.textContent = 'Compiling...';
+
+      const originalActionText = btnActionRun.querySelector('span').textContent;
+      btnActionRun.querySelector('span').textContent = 'Running...';
+      btnActionRun.style.opacity = '0.7';
+      btnActionRun.style.pointerEvents = 'none';
+      if (btnEditorRun) {
+        btnEditorRun.style.opacity = '0.7';
+        btnEditorRun.style.pointerEvents = 'none';
+      }
+
+      // Switch to terminal tab
+      switchTerminalTab('terminal');
+
+      const langInfo = LANGUAGES[currentLang] || { name: 'C', compiler: 'GCC', file: 'main.c' };
+      termLogStream.innerHTML += `
+        <div class="term-run-entry" style="margin-top:8px;">
+          <div class="term-meta-line" style="color:var(--primary-blue); font-weight:700;">
+            🚀 [${new Date().toLocaleTimeString()}] Submitting ${langInfo.file} to ${langInfo.compiler}...
+          </div>
+        </div>
+      `;
+      termBody.scrollTop = termBody.scrollHeight;
+
+      // Determine backend endpoint
+      const apiUrl = (window.location.protocol.startsWith('http') ? window.location.origin : 'http://localhost:3000') + '/api/execute';
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: currentLang,
+            source_code: currentCode,
+            stdin: stdinValue
+          })
+        });
+
+        if (!response.ok) {
+          const errPayload = await response.json().catch(() => ({}));
+          throw new Error(errPayload.error || `HTTP ${response.status} from compiler backend`);
+        }
+
+        const data = await response.json();
+        handleExecutionResult(data);
+
+      } catch (err) {
+        console.error('Compiler backend request failed:', err);
+        terminalStatusBadge.className = 'terminal-status-badge error';
+        terminalStatusText.textContent = 'Connection Error';
+
+        termLogStream.innerHTML += `
+          <div class="term-error-line">
+            <span>❌</span> <span>Backend Connection Error</span>
+          </div>
+          <div class="term-stderr-block">Failed to connect to NRG Engine Compiler Backend at ${apiUrl}.\nReason: ${err.message}\n\nPlease ensure the backend service is running ('node server.js').</div>
+          <div class="term-divider">------------------------------------</div>
+          <div class="term-meta-line" style="color:#ef4444; font-weight:600;">
+            Real execution requires the local backend service. Simulated output has been permanently disabled.
+          </div>
+        `;
+        stdoutView.textContent = `[Connection Error: Compiler Backend offline at ${apiUrl}]`;
+        showToast('Backend Offline: Run "node server.js"');
+      } finally {
+        btnActionRun.querySelector('span').textContent = originalActionText;
+        btnActionRun.style.opacity = '1';
+        btnActionRun.style.pointerEvents = 'auto';
+        if (btnEditorRun) {
+          btnEditorRun.style.opacity = '1';
+          btnEditorRun.style.pointerEvents = 'auto';
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+      }
+    }
+
+    function handleExecutionResult(data) {
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      const termLogStream = document.getElementById('termLogStream');
+      const stdoutView = document.getElementById('stdoutView');
+      const problemsTabCount = document.getElementById('problemsTabCount');
+      const problemsListContainer = document.getElementById('problemsListContainer');
+
+      const isCompileError = data.status && data.status.id === 6; // Compilation Error
+      const isAccepted = data.status && data.status.id === 3;     // Accepted
+      const isTimeout = data.status && data.status.id === 5;      // Time Limit Exceeded
+      const isRuntimeError = !isCompileError && !isAccepted && !isTimeout;
+
+      // Update Problems Tab
+      const problems = data.problems || [];
+      problemsTabCount.textContent = `Problems (${problems.length})`;
+
+      if (problems.length === 0) {
+        problemsListContainer.innerHTML = `
+          <div class="problems-empty-state">
+            <span>✓</span> <span>No compilation errors or warnings detected.</span>
+          </div>
+        `;
+      } else {
+        problemsListContainer.innerHTML = `
+          <div class="problem-cards-list">
+            ${problems.map(p => `
+              <div class="problem-card ${p.severity}" onclick="jumpToLineAndColumn(${p.line}, ${p.column})">
+                <div class="problem-severity-badge">${p.severity}</div>
+                <div class="problem-details">
+                  <div class="problem-title">${escapeHtml(p.message)}</div>
+                  <div class="problem-meta">
+                    <span>${escapeHtml(p.file)} [Ln ${p.line}, Col ${p.column}]</span>
+                    <span>&bull;</span>
+                    <span class="problem-jump-hint">Click to jump to line</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // Case 1: Compilation Error (Section 1, 5, 8)
+      if (isCompileError) {
+        terminalStatusBadge.className = 'terminal-status-badge error';
+        terminalStatusText.textContent = 'Compilation Failed';
+
+        termLogStream.innerHTML += `
+          <div class="term-error-line">
+            <span>❌</span> <span>Compilation failed (${data.compiler || 'GCC'})</span>
+          </div>
+          <div class="term-stderr-block">${escapeHtml(data.compile_output || data.stderr || 'Compilation error')}</div>
+          <div class="term-divider">------------------------------------</div>
+          <div class="term-meta-line" style="color:#ef4444; font-weight:600;">
+            Execution halted. ${problems.length} diagnostics generated. Click items in the Problems tab to navigate.
+          </div>
+        `;
+        stdoutView.textContent = `[Compilation Failed — No program output generated]`;
+        showToast(`Compilation failed (${problems.length} errors)`);
+        return;
+      }
+
+      // Case 2: Time Limit Exceeded
+      if (isTimeout) {
+        terminalStatusBadge.className = 'terminal-status-badge warning';
+        terminalStatusText.textContent = 'Time Limit Exceeded';
+
+        termLogStream.innerHTML += `
+          <div class="term-success-line">
+            <span>✔</span> <span>Compilation successful (${data.compiler || ''})</span>
+          </div>
+          <div class="term-warning-line">
+            <span>⏱</span> <span>Time Limit Exceeded (5.00s CPU limit exceeded)</span>
+          </div>
+          <div class="term-divider">------------------------------------</div>
+          <div class="term-meta-line">Execution safely terminated by sandbox resource controls.</div>
+        `;
+        stdoutView.textContent = `[Time Limit Exceeded — Execution killed after exceeding 5.00s limit]`;
+        showToast('Time Limit Exceeded');
+        return;
+      }
+
+      // Case 3: Runtime Error
+      if (isRuntimeError) {
+        terminalStatusBadge.className = 'terminal-status-badge error';
+        terminalStatusText.textContent = 'Runtime Error';
+
+        termLogStream.innerHTML += `
+          <div class="term-success-line">
+            <span>✔</span> <span>Compilation successful (${data.compiler || ''})</span>
+          </div>
+          <div class="term-error-line">
+            <span>❌</span> <span>Runtime Error: ${data.status ? data.status.description : 'NZEC'}</span>
+          </div>
+          ${data.stderr ? `<div class="term-stderr-block">${escapeHtml(data.stderr)}</div>` : ''}
+          ${data.stdout ? `<div class="term-output-text">${escapeHtml(data.stdout)}</div>` : ''}
+          <div class="term-divider">------------------------------------</div>
+          <div class="term-meta-line">Process exited with non-zero code ${data.exit_code} &bull; Time: ${data.time}s &bull; Memory: ${(data.memory/1024).toFixed(2)} MB</div>
+        `;
+        stdoutView.textContent = data.stdout || `[Runtime Error: ${data.status ? data.status.description : 'Execution crashed'}]`;
+        showToast(`Runtime Error (Exit Code ${data.exit_code})`);
+        return;
+      }
+
+      // Case 4: Complete Success (Accepted & Exit Code 0)
+      terminalStatusBadge.className = 'terminal-status-badge success';
+      terminalStatusText.textContent = 'Success';
+
+      const outputStr = data.stdout || '';
+      termLogStream.innerHTML += `
+        <div class="term-success-line">
+          <span>✔</span> <span>Compilation successful (${data.compiler || ''})</span>
+        </div>
+        <div class="term-success-line">
+          <span>✔</span> <span>Execution completed (Exit code 0)</span>
+        </div>
+        <div class="term-output-text">${escapeHtml(outputStr || '(No text output printed)')}</div>
+        <div class="term-divider">------------------------------------</div>
+        <div class="term-meta-line">Process exited with code 0 &bull; Execution time: ${data.time}s &bull; Memory: ${(data.memory/1024).toFixed(2)} MB</div>
+        <div class="term-meta-line" style="color:var(--primary-blue);">Mode: Judge0 CE Cloud Sandbox (Real Execution)</div>
+      `;
+      stdoutView.textContent = outputStr || '(No text printed to stdout)';
+      showToast('Execution finished with exit code 0');
+    }
+
+    document.getElementById('btnActionRun').addEventListener('click', executeRealCode);
+    document.getElementById('btnEditorRun').addEventListener('click', executeRealCode);
+
+    // Reset Code Button
+    document.getElementById('btnActionReset').addEventListener('click', () => {
+      if (confirm('Reset code editor to default starter template?')) {
+        currentCode = LANGUAGES[currentLang].template;
+        codeInput.value = currentCode;
+        activeLineNumber = 2;
+        updateEditorDisplay();
+        showToast('Editor reset to template');
+      }
+    });
+
+    // Format Code Button
+    document.getElementById('btnActionFormat').addEventListener('click', () => {
+      const lines = currentCode.split('\n');
+      let indentLevel = 0;
+      const formattedLines = lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
+          indentLevel = Math.max(0, indentLevel - 1);
+        }
+        const indented = '    '.repeat(indentLevel) + trimmed;
+        if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
+          indentLevel++;
+        }
+        return indented;
+      });
+      currentCode = formattedLines.join('\n');
+      codeInput.value = currentCode;
+      updateEditorDisplay();
+      showToast('Document formatted');
+    });
+
+    // Save File Button
+    document.getElementById('btnEditorSave').addEventListener('click', () => {
+      const blob = new Blob([currentCode], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = LANGUAGES[currentLang].file;
+      a.click();
+      showToast(`Saved ${LANGUAGES[currentLang].file}`);
+    });
+
+    // ==========================================================================
+    // Terminal Tabs Navigation
+    // ==========================================================================
+    function switchTerminalTab(tabId) {
+      document.querySelectorAll('.terminal-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.termTab === tabId);
+      });
+      document.querySelectorAll('.terminal-tab-view').forEach(view => {
+        view.classList.toggle('active', view.id === `termView${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+      });
+    }
+
+    document.querySelectorAll('.terminal-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTerminalTab(btn.dataset.termTab);
+      });
+    });
+
+    // Terminal Clear Button
+    function clearTerminal() {
+      const termLogStream = document.getElementById('termLogStream');
+      const langData = LANGUAGES[currentLang] || { file: 'main.c', compiler: 'GCC' };
+      if (termLogStream) {
+        termLogStream.innerHTML = `
+          <div class="term-header-line">NRG ENGINE TERMINAL &nbsp;/&nbsp; REAL COMPILER</div>
+          <div class="term-meta-line">Compiler: ${langData.compiler} &bull; Ready for execution</div>
+        `;
+      }
+      const stdoutView = document.getElementById('stdoutView');
+      if (stdoutView) stdoutView.textContent = '[Terminal cleared]';
+      showToast('Terminal cleared');
+    }
+    document.getElementById('btnTerminalClear').addEventListener('click', clearTerminal);
+
+    // Interactive Terminal Command Prompt
+    termPromptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cmd = termPromptInput.value.trim().toLowerCase();
+        termPromptInput.value = '';
+
+        if (!cmd) return;
+
+        const termLogStream = document.getElementById('termLogStream');
+        if (cmd === 'clear') {
+          clearTerminal();
+        } else if (cmd === 'run') {
+          executeRealCode();
+        } else if (cmd === 'help') {
+          termLogStream.innerHTML += `
+            <div class="term-meta-line" style="color:var(--primary-blue); font-weight:700;">Available terminal commands:</div>
+            <div class="term-meta-line">&nbsp;&bull; <b>run</b>: compile and execute active program in sandbox</div>
+            <div class="term-meta-line">&nbsp;&bull; <b>clear</b>: clear terminal output log</div>
+            <div class="term-meta-line">&nbsp;&bull; <b>status</b>: check compiler backend connectivity and service</div>
+            <div class="term-meta-line">&nbsp;&bull; <b>lang [name]</b>: switch active language (c, cpp, java, python, javascript, csharp, go, rust, php, kotlin)</div>
+          `;
+        } else if (cmd === 'status') {
+          termLogStream.innerHTML += `
+            <div class="term-meta-line" style="color:#16a34a; font-weight:700;">Backend: Judge0 CE Multi-Language Execution Engine</div>
+            <div class="term-meta-line">Active Language: ${LANGUAGES[currentLang].name} (${LANGUAGES[currentLang].compiler})</div>
+          `;
+        } else if (cmd.startsWith('lang ')) {
+          const l = cmd.split(' ')[1];
+          if (LANGUAGES[l]) {
+            switchLanguage(l);
+          } else {
+            termLogStream.innerHTML += `<div class="term-error-line">Unknown language: '${l}'. Available: ${Object.keys(LANGUAGES).join(', ')}</div>`;
+          }
+        } else {
+          termLogStream.innerHTML += `<div class="term-meta-line">nrg-engine: command not found: ${escapeHtml(cmd)}. Type 'help' for commands.</div>`;
+        }
+        const termBody = document.getElementById('termViewTerminal');
+        termBody.scrollTop = termBody.scrollHeight;
+      }
+    });
+
+    // ==========================================================================
+    // SIDEBAR MULTI-VIEW NAVIGATION ENGINE (Requirement 1)
+    // ==========================================================================
+    const viewCenterEditor = document.getElementById('viewCenterEditor');
+    const viewRightEditor  = document.getElementById('viewRightEditor');
+    const sectionHome      = document.getElementById('sectionHome');
+    const sectionProjects  = document.getElementById('sectionProjects');
+    const sectionTemplates = document.getElementById('sectionTemplates');
+    const sectionSnippets  = document.getElementById('sectionSnippets');
+    const sectionCollab    = document.getElementById('sectionCollaborate');
+    const sectionSettings  = document.getElementById('sectionSettings');
+
+    function navigateToSection(navId) {
+      // Update Sidebar Active state
+      document.querySelectorAll('#sidebarNavList .nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.nav === navId);
+      });
+
+      // Update Breadcrumbs
+      const bcWorkspace = document.getElementById('bcWorkspaceName');
+      bcWorkspace.textContent = navId === 'editor' ? 'Workspace' : (navId.charAt(0).toUpperCase() + navId.slice(1));
+
+      // Hide all full section views
+      document.querySelectorAll('.section-full-view').forEach(sec => sec.classList.remove('active'));
+
+      if (navId === 'editor') {
+        // Show Editor center + right column
+        viewCenterEditor.style.display = 'flex';
+        viewRightEditor.style.display = 'flex';
+        setTimeout(() => codeInput.focus(), 50);
+      } else {
+        // Hide Editor center + right column
+        viewCenterEditor.style.display = 'none';
+        viewRightEditor.style.display = 'none';
+
+        // Show the corresponding section
+        if (navId === 'home') {
+          sectionHome.classList.add('active');
+          renderHomeSection();
+        } else if (navId === 'projects') {
+          sectionProjects.classList.add('active');
+          renderProjectsSection();
+        } else if (navId === 'templates') {
+          sectionTemplates.classList.add('active');
+          renderTemplatesSection();
+        } else if (navId === 'snippets') {
+          sectionSnippets.classList.add('active');
+          renderSnippetsSection();
+        } else if (navId === 'collaborate') {
+          sectionCollab.classList.add('active');
+        } else if (navId === 'settings') {
+          sectionSettings.classList.add('active');
+        }
+      }
+    }
+
+    document.querySelectorAll('#sidebarNavList .nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        navigateToSection(item.dataset.nav);
+      });
+    });
+
+    document.getElementById('navLogoBtn').addEventListener('click', () => navigateToSection('home'));
+    document.getElementById('bcHomeLink').addEventListener('click', () => navigateToSection('home'));
+
+    // ==========================================================================
+    // 1. HOME SECTION RENDERER
+    // ==========================================================================
+    function renderHomeSection() {
+      document.getElementById('homeStatProjectsCount').textContent = projectsData.length;
+      document.getElementById('homeStatSnippetsCount').textContent = snippetsData.length;
+
+      const recentGrid = document.getElementById('homeRecentProjectsGrid');
+      recentGrid.innerHTML = projectsData.slice(0, 3).map(p => `
+        <div class="item-card" onclick="openProjectInEditor('${p.id}')">
+          <div class="item-card-header">
+            <div class="item-card-title">
+              <span class="lang-icon-badge" style="background:${LANGUAGES[p.lang]?.badgeBg || '#0066ff'}">${LANGUAGES[p.lang]?.badge || 'C'}</span>
+              <span>${p.name}</span>
+            </div>
+            <span class="action-shortcut">${LANGUAGES[p.lang]?.name || 'C'}</span>
+          </div>
+          <div class="item-card-desc">Active file: <code>${p.file}</code> (${p.filesCount} files in workspace)</div>
+          <div class="item-card-meta">
+            <span>Modified ${p.updated}</span>
+            <span style="color:var(--primary-blue); font-weight:700;">Open Editor →</span>
+          </div>
+        </div>
+      `).join('');
+
+      const quickRow = document.getElementById('homeQuickFilesRow');
+      quickRow.innerHTML = [
+        { file: 'main.c', lang: 'c' },
+        { file: 'main.py', lang: 'python' },
+        { file: 'main.rs', lang: 'rust' },
+        { file: 'script.js', lang: 'javascript' },
+        { file: 'Main.java', lang: 'java' }
+      ].map(f => `
+        <button class="glass-btn" onclick="switchLanguage('${f.lang}'); navigateToSection('editor');">
+          <span style="color:var(--primary-blue);">📄</span>
+          <span>${f.file}</span>
+        </button>
+      `).join('');
+    }
+
+    document.getElementById('homeBtnGoEditor').addEventListener('click', () => navigateToSection('editor'));
+    document.getElementById('homeBtnNewProj').addEventListener('click', () => openProjectModal());
+    document.getElementById('homeBtnViewAllProjects').addEventListener('click', () => navigateToSection('projects'));
+
+    // ==========================================================================
+    // 2. PROJECTS MANAGER (Create, Open, Rename, Delete)
+    // ==========================================================================
+    function renderProjectsSection() {
+      const grid = document.getElementById('projectsCardsGrid');
+      const q = document.getElementById('searchProjectsInput').value.toLowerCase();
+      const filtered = projectsData.filter(p => p.name.toLowerCase().includes(q) || p.lang.toLowerCase().includes(q));
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">No projects found matching search.</div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(p => `
+        <div class="item-card">
+          <div class="item-card-header">
+            <div class="item-card-title">
+              <span class="lang-icon-badge" style="background:${LANGUAGES[p.lang]?.badgeBg || '#0066ff'}">${LANGUAGES[p.lang]?.badge || 'C'}</span>
+              <span>${p.name}</span>
+            </div>
+            <span class="action-shortcut">${LANGUAGES[p.lang]?.name || 'C'}</span>
+          </div>
+          <div class="item-card-desc">Workspace file: <code>${p.file}</code> (${p.filesCount} project files)</div>
+          <div class="item-card-meta">
+            <span>Last saved: ${p.updated}</span>
+            <div style="display:flex; gap:6px;">
+              <button class="glass-btn" style="padding:3px 8px; font-size:11px;" onclick="renameProject('${p.id}')">Rename</button>
+              <button class="glass-btn" style="padding:3px 8px; font-size:11px; color:#ef4444;" onclick="deleteProject('${p.id}')">Delete</button>
+              <button class="glass-btn glass-btn-primary" style="padding:3px 10px; font-size:11px;" onclick="openProjectInEditor('${p.id}')">Open</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('searchProjectsInput').addEventListener('input', renderProjectsSection);
+
+    function openProjectInEditor(projId) {
+      const proj = projectsData.find(p => p.id === projId);
+      if (!proj) return;
+      switchLanguage(proj.lang);
+      if (proj.code) {
+        currentCode = proj.code;
+        codeInput.value = currentCode;
+        updateEditorDisplay();
+      }
+      navigateToSection('editor');
+      showToast(`Loaded project "${proj.name}"`);
+    }
+
+    function renameProject(projId) {
+      const proj = projectsData.find(p => p.id === projId);
+      if (!proj) return;
+      const newName = prompt(`Enter new name for project "${proj.name}":`, proj.name);
+      if (newName && newName.trim()) {
+        proj.name = newName.trim();
+        proj.updated = 'Just now';
+        localStorage.setItem('nrg_projects', JSON.stringify(projectsData));
+        renderProjectsSection();
+        showToast('Project renamed');
+      }
+    }
+
+    function deleteProject(projId) {
+      if (confirm('Are you sure you want to delete this project?')) {
+        projectsData = projectsData.filter(p => p.id !== projId);
+        localStorage.setItem('nrg_projects', JSON.stringify(projectsData));
+        renderProjectsSection();
+        showToast('Project deleted');
+      }
+    }
+
+    // New Project Modal
+    const modalProject = document.getElementById('modalCreateProject');
+    function openProjectModal() {
+      modalProject.classList.add('open');
+      document.getElementById('inputNewProjectName').value = '';
+      document.getElementById('inputNewProjectName').focus();
+    }
+    function closeProjectModal() {
+      modalProject.classList.remove('open');
+    }
+    document.getElementById('btnCreateNewProject').addEventListener('click', openProjectModal);
+    document.getElementById('btnCloseProjectModal').addEventListener('click', closeProjectModal);
+    document.getElementById('btnCancelProjectModal').addEventListener('click', closeProjectModal);
+
+    document.getElementById('formNewProject').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('inputNewProjectName').value.trim();
+      const lang = document.getElementById('selectNewProjectLang').value;
+      if (!name) return;
+
+      const newProj = {
+        id: 'p_' + Date.now(),
+        name: name,
+        lang: lang,
+        file: LANGUAGES[lang].file,
+        filesCount: 1,
+        updated: 'Just now',
+        code: LANGUAGES[lang].template
+      };
+
+      projectsData.unshift(newProj);
+      localStorage.setItem('nrg_projects', JSON.stringify(projectsData));
+      closeProjectModal();
+      openProjectInEditor(newProj.id);
+    });
+
+    // ==========================================================================
+    // 3. TEMPLATES SECTION RENDERER
+    // ==========================================================================
+    let currentTemplateFilter = 'all';
+
+    function renderTemplatesSection() {
+      const grid = document.getElementById('templatesCardsGrid');
+      const filtered = TEMPLATES_CATALOG.filter(t => {
+        if (currentTemplateFilter === 'all') return true;
+        return t.cat === currentTemplateFilter;
+      });
+
+      grid.innerHTML = filtered.map(t => `
+        <div class="item-card">
+          <div class="item-card-header">
+            <div class="item-card-title">
+              <span class="lang-icon-badge" style="background:${LANGUAGES[t.lang]?.badgeBg || '#0066ff'}">${LANGUAGES[t.lang]?.badge || 'C'}</span>
+              <span>${t.title}</span>
+            </div>
+            <span class="action-shortcut">${LANGUAGES[t.lang]?.name || 'C'}</span>
+          </div>
+          <div class="item-card-desc">${t.desc}</div>
+          <div class="snippet-code-box">${escapeHtml(t.code)}</div>
+          <div class="item-card-meta" style="margin-top:4px;">
+            <span>${LANGUAGES[t.lang]?.compiler}</span>
+            <button class="glass-btn glass-btn-primary" style="padding:4px 12px; font-size:12px;" onclick="loadTemplateIntoEditor('${t.id}')">
+              <span>⚡ Use Template</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.querySelectorAll('#templatesFilterGroup button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#templatesFilterGroup button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTemplateFilter = btn.dataset.filter;
+        renderTemplatesSection();
+      });
+    });
+
+    function loadTemplateIntoEditor(templateId) {
+      const tmpl = TEMPLATES_CATALOG.find(t => t.id === templateId);
+      if (!tmpl) return;
+      switchLanguage(tmpl.lang);
+      currentCode = tmpl.code;
+      codeInput.value = currentCode;
+      updateEditorDisplay();
+      navigateToSection('editor');
+      showToast(`Loaded template: "${tmpl.title}"`);
+    }
+
+    // ==========================================================================
+    // 4. SNIPPETS SECTION (Save, Search, Copy, Insert)
+    // ==========================================================================
+    function renderSnippetsSection() {
+      const grid = document.getElementById('snippetsCardsGrid');
+      const q = document.getElementById('searchSnippetsInput').value.toLowerCase();
+      const filtered = snippetsData.filter(s => s.title.toLowerCase().includes(q) || s.tags.some(t => t.toLowerCase().includes(q)));
+
+      grid.innerHTML = filtered.map(s => `
+        <div class="item-card">
+          <div class="item-card-header">
+            <div class="item-card-title">
+              <span class="lang-icon-badge" style="background:${LANGUAGES[s.lang]?.badgeBg || '#0066ff'}">${LANGUAGES[s.lang]?.badge || 'C'}</span>
+              <span>${s.title}</span>
+            </div>
+            <div style="display:flex; gap:4px;">
+              ${s.tags.map(t => `<span class="action-shortcut">#${t}</span>`).join('')}
+            </div>
+          </div>
+          <div class="snippet-code-box">${escapeHtml(s.code)}</div>
+          <div class="item-card-meta" style="margin-top:6px;">
+            <button class="glass-btn" style="padding:4px 8px; font-size:11px; color:#ef4444;" onclick="deleteSnippet('${s.id}')">Delete</button>
+            <div style="display:flex; gap:6px;">
+              <button class="glass-btn" style="padding:4px 10px; font-size:12px;" onclick="copySnippetCode('${s.id}')">📋 Copy</button>
+              <button class="glass-btn glass-btn-primary" style="padding:4px 12px; font-size:12px;" onclick="insertSnippetIntoEditor('${s.id}')">↗ Insert in Editor</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('searchSnippetsInput').addEventListener('input', renderSnippetsSection);
+
+    function copySnippetCode(id) {
+      const snip = snippetsData.find(s => s.id === id);
+      if (!snip) return;
+      navigator.clipboard.writeText(snip.code).then(() => {
+        showToast('Snippet copied to clipboard!');
+      });
+    }
+
+    function insertSnippetIntoEditor(id) {
+      const snip = snippetsData.find(s => s.id === id);
+      if (!snip) return;
+      switchLanguage(snip.lang);
+      currentCode = snip.code;
+      codeInput.value = currentCode;
+      updateEditorDisplay();
+      navigateToSection('editor');
+      showToast(`Inserted snippet "${snip.title}" into Editor`);
+    }
+
+    function deleteSnippet(id) {
+      if (confirm('Delete this snippet?')) {
+        snippetsData = snippetsData.filter(s => s.id !== id);
+        localStorage.setItem('nrg_snippets', JSON.stringify(snippetsData));
+        renderSnippetsSection();
+        showToast('Snippet deleted');
+      }
+    }
+
+    // Create Snippet Modal
+    const modalSnippet = document.getElementById('modalCreateSnippet');
+    function openSnippetModal() {
+      modalSnippet.classList.add('open');
+      document.getElementById('inputSnippetTitle').value = '';
+      document.getElementById('textareaSnippetCode').value = '';
+      document.getElementById('inputSnippetTitle').focus();
+    }
+    function closeSnippetModal() {
+      modalSnippet.classList.remove('open');
+    }
+    document.getElementById('btnCreateNewSnippet').addEventListener('click', openSnippetModal);
+    document.getElementById('btnCloseSnippetModal').addEventListener('click', closeSnippetModal);
+    document.getElementById('btnCancelSnippetModal').addEventListener('click', closeSnippetModal);
+
+    document.getElementById('formNewSnippet').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = document.getElementById('inputSnippetTitle').value.trim();
+      const lang = document.getElementById('selectSnippetLang').value;
+      const code = document.getElementById('textareaSnippetCode').value.trim();
+      if (!title || !code) return;
+
+      const newSnip = {
+        id: 's_' + Date.now(),
+        title: title,
+        lang: lang,
+        tags: [lang, 'custom'],
+        code: code
+      };
+
+      snippetsData.unshift(newSnip);
+      localStorage.setItem('nrg_snippets', JSON.stringify(snippetsData));
+      closeSnippetModal();
+      renderSnippetsSection();
+      showToast('Snippet saved to library');
+    });
+
+    // ==========================================================================
+    // 5. COLLABORATION STUDIO
+    // ==========================================================================
+    document.getElementById('btnCopyInviteLink').addEventListener('click', () => {
+      navigator.clipboard.writeText('https://nrg-engine.app/collab/NRG-8821').then(() => {
+        showToast('Invite link copied: https://nrg-engine.app/collab/NRG-8821');
+      });
+    });
+
+    document.getElementById('btnSyncCodeToCollab').addEventListener('click', () => {
+      showToast('Workspace buffer broadcasted to Alex Chen & Elena Rostova');
+    });
+
+    document.getElementById('collabChatForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('collabChatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const box = document.getElementById('collabMessagesContainer');
+      const myBubble = document.createElement('div');
+      myBubble.className = 'chat-bubble mine';
+      myBubble.textContent = text;
+      box.appendChild(myBubble);
+      input.value = '';
+      box.scrollTop = box.scrollHeight;
+
+      // Simulated partner response after 1.2s
+      setTimeout(() => {
+        const theirBubble = document.createElement('div');
+        theirBubble.className = 'chat-bubble theirs';
+        theirBubble.innerHTML = '<strong>Alex Chen:</strong> Got your update! Compiling live on my local tab.';
+        box.appendChild(theirBubble);
+        box.scrollTop = box.scrollHeight;
+      }, 1200);
+    });
+
+    // ==========================================================================
+    // 6. SETTINGS & PREFERENCES
+    // ==========================================================================
+    document.querySelectorAll('.theme-card-option').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.theme-card-option').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const theme = card.dataset.theme;
+
+        document.body.classList.remove('theme-dark', 'theme-midnight');
+        if (theme === 'dark') document.body.classList.add('theme-dark');
+        else if (theme === 'midnight') document.body.classList.add('theme-midnight');
+        showToast(`Theme changed to ${card.textContent}`);
+      });
+    });
+
+    // Font Size Slider
+    const fontSizeRange = document.getElementById('settingFontSizeRange');
+    const fontSizeLabel = document.getElementById('settingFontSizeLabel');
+    fontSizeRange.addEventListener('input', (e) => {
+      const val = e.target.value;
+      fontSizeLabel.textContent = `${val}px`;
+      document.documentElement.style.setProperty('--editor-font-size', `${val}px`);
+      document.documentElement.style.setProperty('--editor-line-height', `${Math.round(val * 1.65)}px`);
+      updateEditorDisplay();
+    });
+
+    // Font Family Select
+    document.getElementById('settingFontFamilySelect').addEventListener('change', (e) => {
+      document.documentElement.style.setProperty('--editor-font-family', e.target.value);
+      updateEditorDisplay();
+      showToast(`Font family updated to ${e.target.value.split(',')[0]}`);
+    });
+
+    // Tab Size Select
+    document.getElementById('settingTabSizeSelect').addEventListener('change', (e) => {
+      document.documentElement.style.setProperty('--editor-tab-size', e.target.value);
+      updateEditorDisplay();
+      showToast(`Tab size set to ${e.target.value} spaces`);
+    });
+
+    // ==========================================================================
+    // 7. COMMAND PALETTE & MODALS
+    // ==========================================================================
+    const paletteModal = document.getElementById('paletteModal');
+    const paletteInput = document.getElementById('paletteSearchInput');
+    const overviewModal = document.getElementById('overviewModal');
+
+    function openCommandPalette() {
+      paletteModal.classList.add('open');
+      paletteInput.value = '';
+      paletteInput.focus();
+    }
+    function closeCommandPalette() {
+      paletteModal.classList.remove('open');
+    }
+
+    document.getElementById('searchBarBtn').addEventListener('click', openCommandPalette);
+    document.getElementById('btnOpenDesignSystemModal').addEventListener('click', () => overviewModal.classList.add('open'));
+    document.getElementById('btnCloseOverview').addEventListener('click', () => overviewModal.classList.remove('open'));
+
+    paletteModal.addEventListener('click', (e) => {
+      if (e.target === paletteModal) closeCommandPalette();
+    });
+    overviewModal.addEventListener('click', (e) => {
+      if (e.target === overviewModal) overviewModal.classList.remove('open');
+    });
+
+    document.querySelectorAll('#paletteList li').forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.action;
+        closeCommandPalette();
+        if (action === 'nav-editor') navigateToSection('editor');
+        else if (action === 'run') { navigateToSection('editor'); executeRealCode(); }
+        else if (action === 'nav-projects') navigateToSection('projects');
+        else if (action === 'nav-templates') navigateToSection('templates');
+        else if (action === 'nav-snippets') navigateToSection('snippets');
+        else if (action === 'nav-collab') navigateToSection('collaborate');
+        else if (action === 'nav-settings') navigateToSection('settings');
+      });
+    });
+
+    // Keyboard Shortcuts (Ctrl+K, Ctrl+Enter, Ctrl+R, Ctrl+Shift+F, Ctrl+S)
+    window.addEventListener('keydown', (e) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      if (e.key === 'Escape') {
+        closeCommandPalette();
+        closeProjectModal();
+        closeSnippetModal();
+        overviewModal.classList.remove('open');
+      }
+
+      if (isCtrlOrCmd && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openCommandPalette();
+      }
+
+      if (isCtrlOrCmd && e.key === 'Enter') {
+        e.preventDefault();
+        navigateToSection('editor');
+        executeRealCode();
+      }
+
+      if (isCtrlOrCmd && !e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        document.getElementById('btnActionReset').click();
+      }
+
+      if (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        document.getElementById('btnActionFormat').click();
+      }
+
+      if (isCtrlOrCmd && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        document.getElementById('btnEditorSave').click();
+      }
+    });
+
+    // Theme Toggle in Header
+    document.getElementById('btnThemeToggle').addEventListener('click', () => {
+      const isDark = document.body.classList.contains('theme-dark');
+      document.body.classList.remove('theme-dark', 'theme-midnight');
+      if (!isDark) {
+        document.body.classList.add('theme-dark');
+        showToast('Switched to Cyber Obsidian Dark');
+      } else {
+        showToast('Switched to Light Frosted Glass');
+      }
+    });
+
+    // Profile & Info Alerts
+    document.getElementById('userProfileBtn').addEventListener('click', () => navigateToSection('settings'));
+    document.getElementById('btnNotifications').addEventListener('click', () => {
+      showToast('Notifications: Cloud storage synced • 10 Compilers online');
+    });
+    document.getElementById('btnMessages').addEventListener('click', () => navigateToSection('collaborate'));
+
+    // Boot: Start in Editor View
+    navigateToSection('editor');
+  </script>
+</body>
+</html>

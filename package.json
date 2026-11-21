@@ -1,0 +1,29 @@
+{
+  "name": "nrg-engine",
+  "version": "1.0.0",
+  "description": "Modern Web-Based Multi-Language IDE with Real Compiler Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/test_10_languages.js"
+  },
+  "keywords": [
+    "ide",
+    "compiler",
+    "judge0",
+    "code-editor",
+    "glassmorphism",
+    "c",
+    "cpp",
+    "python",
+    "javascript",
+    "java",
+    "rust",
+    "go",
+    "csharp",
+    "php",
+    "kotlin"
+  ],
+  "author": "Tanmay Verma",
+  "license": "MIT"
+}
