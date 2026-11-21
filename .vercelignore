@@ -6,3 +6,4 @@ avatar_b64.txt
 .system_generated
 .env.local
 *.tmp
+server.js

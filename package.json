@@ -2,11 +2,9 @@
   "name": "nrg-engine",
   "version": "1.0.0",
   "description": "Modern Web-Based Multi-Language IDE with Real Compiler Backend",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "echo NRG Engine ready for Vercel deployment",
     "test": "node tests/test_10_languages.js",
     "test:vercel": "node tests/test_vercel_handlers.js"
   },
