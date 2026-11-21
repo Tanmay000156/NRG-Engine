@@ -1,0 +1,8 @@
+.git
+.github
+tests
+*.bat
+avatar_b64.txt
+.system_generated
+.env.local
+*.tmp

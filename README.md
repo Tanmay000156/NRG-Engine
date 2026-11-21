@@ -1,10 +1,48 @@
 # NRG ENGINE — Cloud Coding Platform
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTanmay000156%2FNRG-Engine)
+
 ![NRG Engine Header](assets/screenshots/nrg_ide_star_triangle_verified.png)
 
 > **A modern, high-performance web-based IDE and cloud coding platform with genuine multi-language compilation, interactive terminal rendering, resizable workspace layout, and real-time execution.**
 
 Developed with precision by **Tanmay Verma** (`NRG ENGINE • DEVELOPER EDITION`).
+
+---
+
+## ⚡ 1-Click Deploy to Vercel
+
+NRG Engine is fully configured for zero-configuration, instant deployment on **Vercel** with full serverless compiler support.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTanmay000156%2FNRG-Engine)
+
+### Deploying via Vercel Dashboard
+
+1. Click the **Deploy with Vercel** button above or go to [Vercel Dashboard](https://vercel.com/new).
+2. Import repository: `https://github.com/Tanmay000156/NRG-Engine`.
+3. (Optional) In **Environment Variables**, you can configure custom Judge0 endpoints:
+   - `JUDGE0_API_URL` (Defaults to `https://ce.judge0.com` — no key required)
+   - `JUDGE0_API_KEY` (Optional RapidAPI Key for higher rate limits)
+4. Click **Deploy**. Your IDE and serverless compiler API will be live in under 30 seconds!
+
+### Deploying via Vercel CLI
+
+```bash
+# Install Vercel CLI globally (if not already installed)
+npm install -g vercel
+
+# Deploy directly from repository root
+vercel
+```
+
+### Vercel Serverless Architecture
+
+- **Global Edge CDN:** The frontend application (`index.html`, styles, fonts, and assets) is served directly from Vercel's global edge network for sub-millisecond initial loading times.
+- **Serverless API Routes (`/api/*`):**
+  - `POST /api/execute` — Serverless execution engine with request streaming, Base64 payload encoding, and Judge0 integration.
+  - `GET /api/health` — Microservice health checks and status probes.
+  - `GET /api/languages` — Dynamic metadata for the 10 supported programming languages.
+- **Dual Runtime Parity:** Zero lock-in. The project seamlessly runs as a standard Node.js server locally (`npm start`) and as serverless micro-lambdas on Vercel without altering a single line of frontend code.
 
 ---
 
