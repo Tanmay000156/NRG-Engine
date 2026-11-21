@@ -914,6 +914,265 @@
       border-radius: 2px;
     }
 
+    /* Turtle Tab Pulse Dot */
+    .turtle-pulse-dot {
+      display: none;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+      animation: turtlePulse 1.5s infinite;
+      margin-left: 2px;
+    }
+    .turtle-pulse-dot.active {
+      display: inline-block;
+    }
+    @keyframes turtlePulse {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 10px #10b981; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+
+    /* Turtle Graphics Canvas View */
+    #termViewTurtle {
+      display: none;
+      flex-direction: column;
+      padding: 0;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      background: var(--card-bg-solid);
+    }
+    #termViewTurtle.active {
+      display: flex;
+    }
+    .turtle-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      background: var(--glass-card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--glass-panel-border);
+      flex-wrap: wrap;
+      gap: 8px;
+      z-index: 10;
+    }
+    .turtle-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .turtle-badge-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--primary-blue);
+      text-transform: uppercase;
+    }
+    .turtle-emoji {
+      font-size: 14px;
+    }
+    .turtle-status-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--glass-panel-border);
+      padding: 2px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', Consolas, monospace;
+    }
+    .turtle-status-chip .chip-item strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    .turtle-status-chip .chip-sep {
+      opacity: 0.3;
+    }
+    .turtle-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-turtle-tool {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--card-bg-subtle);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn-turtle-tool:hover {
+      background: var(--hover-light);
+      color: var(--text-main);
+      border-color: rgba(0, 102, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    .btn-turtle-tool.primary {
+      background: var(--primary-gradient);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(0, 102, 255, 0.25);
+    }
+    .btn-turtle-tool.primary:hover {
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.35);
+      transform: translateY(-1px);
+    }
+    .turtle-speed-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin: 0 2px;
+    }
+    .turtle-speed-dropdown {
+      background: var(--card-bg-subtle);
+      color: var(--text-main);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-sm);
+      padding: 3px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+    }
+    .turtle-viewport {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100% - 40px);
+      min-height: 180px;
+      overflow: hidden;
+      background: #ffffff;
+      transition: background 0.25s ease;
+    }
+    body.theme-dark .turtle-viewport,
+    body.theme-navy .turtle-viewport {
+      background: #0f172a;
+    }
+    #turtleCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .turtle-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+      z-index: 5;
+    }
+    body.theme-dark .turtle-placeholder,
+    body.theme-navy .turtle-placeholder {
+      background: rgba(15, 23, 42, 0.9);
+    }
+    .turtle-placeholder.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .turtle-placeholder-card {
+      max-width: 440px;
+      padding: 24px 28px;
+      background: var(--glass-card-bg);
+      border: 1px solid var(--glass-panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-glass);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .turtle-card-icon {
+      font-size: 38px;
+      filter: drop-shadow(0 4px 10px rgba(0, 102, 255, 0.2));
+      animation: turtleBounce 2s infinite ease-in-out;
+    }
+    @keyframes turtleBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .turtle-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.3px;
+    }
+    .turtle-card-text {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .turtle-card-text code {
+      background: var(--card-bg-subtle);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--primary-blue);
+      font-weight: 600;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+    }
+    .turtle-starter-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn-turtle-starter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--primary-gradient);
+      color: #fff;
+      border: 0;
+      cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0, 102, 255, 0.25);
+      transition: all 0.18s ease;
+    }
+    .btn-turtle-starter:hover {
+      transform: translateY(-1.5px);
+      box-shadow: 0 5px 16px rgba(0, 102, 255, 0.35);
+    }
+    .btn-turtle-starter.secondary {
+      background: var(--card-bg-subtle);
+      color: var(--text-main);
+      border: 1px solid var(--glass-panel-border);
+      box-shadow: none;
+    }
+    .btn-turtle-starter.secondary:hover {
+      background: var(--hover-light);
+      border-color: rgba(0, 102, 255, 0.3);
+    }
+
     /* Terminal Status Badge & Clear */
     .terminal-controls {
       display: flex;
@@ -2704,6 +2963,19 @@
                 </svg>
                 <span>History</span>
               </button>
+              <button class="terminal-tab-btn" data-term-tab="turtle" id="tabBtnTurtle">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 10V6a2 2 0 0 1 4 0v4"></path>
+                  <path d="M12 10V6a2 2 0 0 0-4 0v4"></path>
+                  <circle cx="12" cy="14" r="6"></circle>
+                  <path d="M6 14H3a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h3"></path>
+                  <path d="M18 14h3a1 1 0 0 0 1-1v-1a1 1 0 0 0-1-1h-3"></path>
+                  <path d="M8 19l-2 2"></path>
+                  <path d="M16 19l2 2"></path>
+                </svg>
+                <span>Turtle</span>
+                <span class="turtle-pulse-dot" id="turtlePulseDot"></span>
+              </button>
               <button class="terminal-tab-btn" data-term-tab="problems">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
@@ -2811,6 +3083,99 @@
               <button id="btnClearRunHistory" style="background:var(--card-bg-subtle); border:1px solid var(--glass-panel-border); border-radius:6px; font-size:11px; padding:3px 8px; cursor:pointer; color:var(--text-secondary); transition:all 0.15s ease;">Clear History</button>
             </div>
             <div id="runHistoryListContainer" style="margin-top:8px;"></div>
+          </div>
+
+          <!-- Tab 6: Turtle Graphics Canvas View -->
+          <div class="terminal-body terminal-tab-view" id="termViewTurtle">
+            <div class="turtle-header-bar">
+              <div class="turtle-bar-left">
+                <span class="turtle-badge-label">
+                  <span class="turtle-emoji">🐢</span>
+                  <span>TURTLE GRAPHICS</span>
+                </span>
+                <div class="turtle-status-chip" id="turtleStatusChip">
+                  <span class="chip-item">X: <strong id="valTurtleX">0</strong></span>
+                  <span class="chip-item">Y: <strong id="valTurtleY">0</strong></span>
+                  <span class="chip-item">Angle: <strong id="valTurtleHeading">0°</strong></span>
+                  <span class="chip-sep">|</span>
+                  <span class="chip-item">Steps: <strong id="valTurtleSteps">0/0</strong></span>
+                </div>
+              </div>
+
+              <div class="turtle-bar-right">
+                <!-- Play/Pause -->
+                <button class="btn-turtle-tool" id="btnTurtlePlayPause" title="Play / Pause Animation">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" id="svgTurtlePlay">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  <span id="labelTurtlePlay">Play</span>
+                </button>
+
+                <!-- Restart/Replay -->
+                <button class="btn-turtle-tool" id="btnTurtleRestart" title="Replay Animation">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                  </svg>
+                  <span>Replay</span>
+                </button>
+
+                <!-- Speed Selector -->
+                <div class="turtle-speed-box">
+                  <span>Speed:</span>
+                  <select class="turtle-speed-dropdown" id="turtleSpeedSelect">
+                    <option value="1">1x (Slow)</option>
+                    <option value="5">5x (Normal)</option>
+                    <option value="20" selected>20x (Fast)</option>
+                    <option value="100">100x (Turbo)</option>
+                    <option value="0">Instant (∞)</option>
+                  </select>
+                </div>
+
+                <!-- Clear Canvas -->
+                <button class="btn-turtle-tool" id="btnTurtleClear" title="Clear Canvas">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Clear</span>
+                </button>
+
+                <!-- Export PNG -->
+                <button class="btn-turtle-tool primary" id="btnTurtleExport" title="Export High-Resolution Image (PNG)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Export Image</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Canvas Viewport -->
+            <div class="turtle-viewport" id="turtleViewport">
+              <canvas id="turtleCanvas"></canvas>
+
+              <!-- Empty State -->
+              <div class="turtle-placeholder" id="turtlePlaceholder">
+                <div class="turtle-placeholder-card">
+                  <div class="turtle-card-icon">🐢</div>
+                  <div class="turtle-card-title">Python Turtle Graphics Canvas</div>
+                  <div class="turtle-card-text">
+                    Execute Python programs using <code>turtle</code> to render real-time vector graphics, geometric spirals, fractal trees, and animations with full Canvas acceleration.
+                  </div>
+                  <div class="turtle-starter-actions">
+                    <button class="btn-turtle-starter" id="btnStarterSpiral">
+                      <span>🌀 Load Color Spiral</span>
+                    </button>
+                    <button class="btn-turtle-starter secondary" id="btnStarterStar">
+                      <span>⭐ Load Star Fractal</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3615,7 +3980,8 @@ echo "Hello, NRG Engine from PHP!\\n";
       { id: 't3', title: 'Python Machine Learning & Matrix Pipeline', lang: 'python', cat: 'web', desc: 'Pure algorithmic matrix multiplication and regression optimization loop.', code: 'def matrix_multiply(a, b):\n    return [[sum(i * j for i, j in zip(row, col)) for col in zip(*b)] for row in a]\n\ndef main():\n    A = [[1, 2], [3, 4]]\n    B = [[5, 6], [7, 8]]\n    print("Matrix Dot Product Result:", matrix_multiply(A, B))\n\nif __name__ == "__main__":\n    main()' },
       { id: 't4', title: 'JavaScript 60FPS Canvas Physics Simulation', lang: 'javascript', cat: 'web', desc: 'Interactive particle loop with delta-timing, friction damping, and gravity.', code: 'class Particle {\n    constructor(x, y) {\n        this.x = x;\n        this.y = y;\n        this.vx = (Math.random() - 0.5) * 4;\n        this.vy = -Math.random() * 5;\n    }\n    update() { this.x += this.vx; this.y += this.vy; }\n}\nconsole.log("60FPS Physics Engine Ready!");' },
       { id: 't5', title: 'Rust Zero-Cost Concurrency & CLI', lang: 'rust', cat: 'systems', desc: 'Thread pooling, error handling with Result, and zero-allocation memory safety.', code: 'use std::thread;\n\nfn main() {\n    let handle = thread::spawn(|| {\n        "NRG Worker thread execution complete."\n    });\n    println!("{}", handle.join().unwrap());\n}' },
-      { id: 't6', title: 'Go Microservice & JSON API Route', lang: 'go', cat: 'backend', desc: 'Lightweight concurrent HTTP router with JSON marshaling and health probes.', code: 'package main\n\nimport "fmt"\n\ntype Response struct {\n    Status  string\n    Version string\n}\n\nfunc main() {\n    resp := Response{Status: "Online", Version: "1.0.4"}\n    fmt.Printf("NRG Microservice Ready: %+v\\n", resp)\n}' }
+      { id: 't6', title: 'Go Microservice & JSON API Route', lang: 'go', cat: 'backend', desc: 'Lightweight concurrent HTTP router with JSON marshaling and health probes.', code: 'package main\n\nimport "fmt"\n\ntype Response struct {\n    Status  string\n    Version string\n}\n\nfunc main() {\n    resp := Response{Status: "Online", Version: "1.0.4"}\n    fmt.Printf("NRG Microservice Ready: %+v\\n", resp)\n}' },
+      { id: 't7', title: 'Python Turtle Graphics (Rainbow Spiral)', lang: 'python', cat: 'web', desc: 'Hardware-accelerated vector graphics with loops, dynamic hues, and animated geometry.', code: 'import turtle\\n\\nt = turtle.Turtle()\\nt.speed(0)\\nturtle.bgcolor("#0f172a")\\n\\ncolors = ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185", "#34d399"]\\n\\nfor i in range(120):\\n    t.pencolor(colors[i % len(colors)])\\n    t.pensize(i / 30 + 1)\\n    t.forward(i * 2)\\n    t.left(59)\\n\\nturtle.done()' }
     ];
 
     // DOM Elements
@@ -5162,6 +5528,16 @@ echo "Hello, NRG Engine from PHP!\\n";
         `;
         stdoutView.textContent = data.stdout || (data.stderr ? `[Stderr]:\n${data.stderr}` : `[Runtime Error: ${data.status ? data.status.description : 'Execution crashed'}]`);
         showToast(`Runtime Error (Exit Code ${data.exit_code})`);
+
+        // Check for Turtle Graphics even on runtime error (show partial drawing up to crash)
+        if (data.turtle_commands && Array.isArray(data.turtle_commands) && data.turtle_commands.length > 0) {
+          const pulse = document.getElementById('turtlePulseDot');
+          if (pulse) pulse.classList.add('active');
+          if (window.nrgTurtleEngine) {
+            window.nrgTurtleEngine.loadCommands(data.turtle_commands);
+          }
+        }
+
         const termBody = document.getElementById('termViewTerminal');
         if (termBody) termBody.scrollTop = termBody.scrollHeight;
         return;
@@ -5186,6 +5562,19 @@ echo "Hello, NRG Engine from PHP!\\n";
       `;
       stdoutView.textContent = outputStr || '(No text printed to stdout)';
       showToast('Execution finished with exit code 0');
+
+      // Check for Turtle Graphics output stream
+      if (data.turtle_commands && Array.isArray(data.turtle_commands) && data.turtle_commands.length > 0) {
+        const pulse = document.getElementById('turtlePulseDot');
+        if (pulse) pulse.classList.add('active');
+
+        if (window.nrgTurtleEngine) {
+          window.nrgTurtleEngine.loadCommands(data.turtle_commands);
+        }
+        switchTerminalTab('turtle');
+        showToast(`🐢 Turtle Graphics rendered (${data.turtle_commands.length} steps)`);
+      }
+
       const termBody = document.getElementById('termViewTerminal');
       if (termBody) termBody.scrollTop = termBody.scrollHeight;
     }
@@ -5245,6 +5634,14 @@ echo "Hello, NRG Engine from PHP!\\n";
       document.querySelectorAll('.terminal-tab-view').forEach(view => {
         view.classList.toggle('active', view.id === `termView${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
       });
+
+      if (tabId === 'turtle') {
+        const pulse = document.getElementById('turtlePulseDot');
+        if (pulse) pulse.classList.remove('active');
+        if (window.nrgTurtleEngine) {
+          setTimeout(() => window.nrgTurtleEngine.resize(), 40);
+        }
+      }
     }
 
     document.querySelectorAll('.terminal-tab-btn').forEach(btn => {
@@ -5252,6 +5649,640 @@ echo "Hello, NRG Engine from PHP!\\n";
         switchTerminalTab(btn.dataset.termTab);
       });
     });
+
+    // ==========================================================================
+    // NRG ENGINE — BROWSER-BASED PYTHON TURTLE GRAPHICS ENGINE
+    // High-DPI HTML5 Canvas Vector Renderer with Animation & Multiple Turtles
+    // ==========================================================================
+    class NRGTurtleEngine {
+      constructor(canvasId, containerId) {
+        this.canvas = document.getElementById(canvasId);
+        this.container = document.getElementById(containerId);
+        if (!this.canvas || !this.container) return;
+        this.ctx = this.canvas.getContext('2d');
+
+        this.commands = [];
+        this.cmdIndex = 0;
+        this.isPlaying = false;
+        this.speed = 20; // Default 20 steps/frame
+        this.animFrameId = null;
+
+        this.bgColor = '#ffffff';
+        this.hasCustomBg = false;
+        this.turtles = {};
+        this.drawnItems = [];
+        this.stamps = {};
+
+        this.originX = 0;
+        this.originY = 0;
+        this.scale = 1.0;
+
+        this.initCanvas();
+        this.bindControls();
+      }
+
+      initCanvas() {
+        this.resize();
+        if (window.ResizeObserver) {
+          const ro = new ResizeObserver(() => this.resize());
+          ro.observe(this.container);
+        } else {
+          window.addEventListener('resize', () => this.resize());
+        }
+
+        // Theme change detection
+        const observer = new MutationObserver(() => {
+          const isDark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-navy');
+          if (!this.hasCustomBg) {
+            this.bgColor = isDark ? '#0f172a' : '#ffffff';
+            this.redraw();
+          }
+        });
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      }
+
+      resize() {
+        if (!this.canvas || !this.container) return;
+        const rect = this.container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = rect.width;
+        this.height = rect.height;
+
+        this.canvas.width = Math.round(rect.width * dpr);
+        this.canvas.height = Math.round(rect.height * dpr);
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+
+        this.originX = rect.width / 2;
+        this.originY = rect.height / 2;
+
+        this.redraw();
+      }
+
+      toCanvasX(turtleX) {
+        return this.originX + (turtleX * this.scale);
+      }
+
+      toCanvasY(turtleY) {
+        // Cartesian +Y is UP, Canvas +Y is DOWN
+        return this.originY - (turtleY * this.scale);
+      }
+
+      getTurtle(tid) {
+        if (!this.turtles[tid]) {
+          this.turtles[tid] = {
+            tid: tid,
+            x: 0,
+            y: 0,
+            heading: 0, // 0 = East
+            penDown: true,
+            penColor: '#000000',
+            fillColor: '#000000',
+            penSize: 1.5,
+            speed: 3,
+            visible: true,
+            shape: 'classic',
+            isFilling: false,
+            fillPoints: []
+          };
+        }
+        return this.turtles[tid];
+      }
+
+      loadCommands(commandList) {
+        if (this.animFrameId) {
+          cancelAnimationFrame(this.animFrameId);
+          this.animFrameId = null;
+        }
+
+        this.commands = commandList || [];
+        this.cmdIndex = 0;
+        this.hasCustomBg = false;
+        const isDark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-navy');
+        this.bgColor = isDark ? '#0f172a' : '#ffffff';
+
+        this.turtles = {};
+        this.drawnItems = [];
+        this.stamps = {};
+
+        const placeholder = document.getElementById('turtlePlaceholder');
+        if (placeholder) placeholder.classList.add('hidden');
+
+        this.isPlaying = true;
+        this.updatePlayPauseBtn(true);
+        this.updateStatusBadge();
+        this.loop();
+      }
+
+      loop() {
+        if (!this.isPlaying) return;
+
+        if (this.speed === 0) {
+          // Instant mode: process all remaining commands at once
+          while (this.cmdIndex < this.commands.length) {
+            this.processCommand(this.commands[this.cmdIndex]);
+            this.cmdIndex++;
+          }
+          this.redraw();
+          this.updateStatusBadge();
+          this.isPlaying = false;
+          this.updatePlayPauseBtn(false);
+          return;
+        }
+
+        const batch = Math.min(this.speed, this.commands.length - this.cmdIndex);
+        for (let i = 0; i < batch; i++) {
+          if (this.cmdIndex >= this.commands.length) break;
+          this.processCommand(this.commands[this.cmdIndex]);
+          this.cmdIndex++;
+        }
+
+        this.redraw();
+        this.updateStatusBadge();
+
+        if (this.cmdIndex < this.commands.length) {
+          this.animFrameId = requestAnimationFrame(() => this.loop());
+        } else {
+          this.isPlaying = false;
+          this.updatePlayPauseBtn(false);
+        }
+      }
+
+      processCommand(cmd) {
+        if (!cmd) return;
+        const t = cmd.tid ? this.getTurtle(cmd.tid) : null;
+
+        switch (cmd.cmd) {
+          case 'create_turtle': {
+            const turtle = this.getTurtle(cmd.tid);
+            turtle.shape = cmd.shape || 'classic';
+            turtle.visible = cmd.visible !== false;
+            turtle.x = cmd.x || 0;
+            turtle.y = cmd.y || 0;
+            turtle.heading = cmd.heading || 0;
+            turtle.penColor = cmd.pencolor || '#000000';
+            turtle.fillColor = cmd.fillcolor || '#000000';
+            turtle.penSize = cmd.pensize || 1.5;
+            break;
+          }
+          case 'move': {
+            if (!t) break;
+            const x0 = cmd.x0 !== undefined ? cmd.x0 : t.x;
+            const y0 = cmd.y0 !== undefined ? cmd.y0 : t.y;
+            const x1 = cmd.x1;
+            const y1 = cmd.y1;
+
+            if (cmd.pen && (x0 !== x1 || y0 !== y1)) {
+              this.drawnItems.push({
+                type: 'line',
+                x0: x0,
+                y0: y0,
+                x1: x1,
+                y1: y1,
+                color: cmd.color || t.penColor,
+                size: cmd.size || t.penSize
+              });
+            }
+
+            if (t.isFilling) {
+              t.fillPoints.push({ x: x1, y: y1 });
+            }
+
+            t.x = x1;
+            t.y = y1;
+            break;
+          }
+          case 'rotate': {
+            if (!t) break;
+            t.heading = cmd.heading;
+            break;
+          }
+          case 'penup': {
+            if (t) t.penDown = false;
+            break;
+          }
+          case 'pendown': {
+            if (t) t.penDown = true;
+            break;
+          }
+          case 'pencolor': {
+            if (t) t.penColor = cmd.color;
+            break;
+          }
+          case 'fillcolor': {
+            if (t) t.fillColor = cmd.color;
+            break;
+          }
+          case 'pensize': {
+            if (t) t.penSize = cmd.size;
+            break;
+          }
+          case 'begin_fill': {
+            if (t) {
+              t.isFilling = true;
+              t.fillPoints = [{ x: t.x, y: t.y }];
+              t.currentFillColor = cmd.color || t.fillColor;
+            }
+            break;
+          }
+          case 'end_fill': {
+            if (t && t.isFilling) {
+              t.isFilling = false;
+              if (t.fillPoints && t.fillPoints.length >= 3) {
+                this.drawnItems.push({
+                  type: 'fill',
+                  points: [...t.fillPoints],
+                  color: cmd.color || t.currentFillColor || t.fillColor
+                });
+              }
+              t.fillPoints = [];
+            }
+            break;
+          }
+          case 'dot': {
+            this.drawnItems.push({
+              type: 'dot',
+              x: cmd.x,
+              y: cmd.y,
+              size: cmd.size || 4,
+              color: cmd.color || (t ? t.penColor : '#000000')
+            });
+            break;
+          }
+          case 'stamp': {
+            if (cmd.sid) {
+              this.stamps[cmd.sid] = {
+                x: cmd.x,
+                y: cmd.y,
+                heading: cmd.heading,
+                shape: cmd.shape || 'classic',
+                penColor: cmd.pencolor || '#000000',
+                fillColor: cmd.fillcolor || '#000000'
+              };
+            }
+            break;
+          }
+          case 'clearstamp': {
+            if (cmd.sid && this.stamps[cmd.sid]) {
+              delete this.stamps[cmd.sid];
+            }
+            break;
+          }
+          case 'clearstamps': {
+            this.stamps = {};
+            break;
+          }
+          case 'write': {
+            this.drawnItems.push({
+              type: 'text',
+              text: cmd.text,
+              x: cmd.x,
+              y: cmd.y,
+              align: cmd.align || 'left',
+              font: cmd.font,
+              color: cmd.color || '#000000'
+            });
+            break;
+          }
+          case 'bgcolor': {
+            this.bgColor = cmd.color;
+            this.hasCustomBg = true;
+            break;
+          }
+          case 'hideturtle': {
+            if (t) t.visible = false;
+            break;
+          }
+          case 'showturtle': {
+            if (t) t.visible = true;
+            break;
+          }
+          case 'shape': {
+            if (t) t.shape = cmd.shape;
+            break;
+          }
+          case 'screen_clear': {
+            this.drawnItems = [];
+            this.stamps = {};
+            break;
+          }
+          case 'resetscreen': {
+            this.drawnItems = [];
+            this.stamps = {};
+            Object.values(this.turtles).forEach(turtle => {
+              turtle.x = 0;
+              turtle.y = 0;
+              turtle.heading = 0;
+              turtle.penDown = true;
+            });
+            break;
+          }
+          case 'turtle_reset': {
+            if (t) {
+              t.x = 0;
+              t.y = 0;
+              t.heading = 0;
+              t.penDown = true;
+            }
+            break;
+          }
+        }
+      }
+
+      redraw() {
+        if (!this.ctx || !this.width || !this.height) return;
+        const ctx = this.ctx;
+        const dpr = this.dpr || 1;
+
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // 1. Draw Background
+        ctx.fillStyle = this.bgColor;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. Subtle Coordinate Center Grid Lines
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.originX, 0);
+        ctx.lineTo(this.originX, this.height);
+        ctx.moveTo(0, this.originY);
+        ctx.lineTo(this.width, this.originY);
+        ctx.stroke();
+
+        // 3. Draw All Committed Items (Fills, Lines, Dots, Text)
+        for (const item of this.drawnItems) {
+          if (item.type === 'fill') {
+            if (item.points && item.points.length >= 3) {
+              ctx.beginPath();
+              ctx.moveTo(this.toCanvasX(item.points[0].x), this.toCanvasY(item.points[0].y));
+              for (let i = 1; i < item.points.length; i++) {
+                ctx.lineTo(this.toCanvasX(item.points[i].x), this.toCanvasY(item.points[i].y));
+              }
+              ctx.closePath();
+              ctx.fillStyle = item.color;
+              ctx.fill();
+            }
+          } else if (item.type === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(this.toCanvasX(item.x0), this.toCanvasY(item.y0));
+            ctx.lineTo(this.toCanvasX(item.x1), this.toCanvasY(item.y1));
+            ctx.strokeStyle = item.color;
+            ctx.lineWidth = item.size;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+          } else if (item.type === 'dot') {
+            ctx.beginPath();
+            ctx.arc(this.toCanvasX(item.x), this.toCanvasY(item.y), item.size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = item.color;
+            ctx.fill();
+          } else if (item.type === 'text') {
+            ctx.fillStyle = item.color;
+            ctx.textAlign = item.align || 'left';
+            ctx.font = '13px Consolas, monospace';
+            ctx.fillText(item.text, this.toCanvasX(item.x), this.toCanvasY(item.y));
+          }
+        }
+
+        // 4. Draw Active In-Progress Fill Polygons
+        Object.values(this.turtles).forEach(t => {
+          if (t.isFilling && t.fillPoints && t.fillPoints.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(this.toCanvasX(t.fillPoints[0].x), this.toCanvasY(t.fillPoints[0].y));
+            for (let i = 1; i < t.fillPoints.length; i++) {
+              ctx.lineTo(this.toCanvasX(t.fillPoints[i].x), this.toCanvasY(t.fillPoints[i].y));
+            }
+            ctx.fillStyle = t.currentFillColor || t.fillColor;
+            ctx.fill();
+          }
+        });
+
+        // 5. Draw Stamps
+        Object.values(this.stamps).forEach(st => {
+          this.drawTurtleShape(ctx, this.toCanvasX(st.x), this.toCanvasY(st.y), st.heading, st.shape, st.penColor, st.fillColor, 0.85);
+        });
+
+        // 6. Draw Live Turtle Cursors
+        Object.values(this.turtles).forEach(t => {
+          if (t.visible) {
+            this.drawTurtleShape(ctx, this.toCanvasX(t.x), this.toCanvasY(t.y), t.heading, t.shape, t.penColor, t.fillColor, 1.0, t.tid);
+          }
+        });
+
+        ctx.restore();
+      }
+
+      drawTurtleShape(ctx, cx, cy, headingDeg, shape, penColor, fillColor, alpha = 1.0, tid = null) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(-headingDeg * Math.PI / 180);
+        ctx.globalAlpha = alpha;
+
+        ctx.fillStyle = fillColor || '#2563eb';
+        ctx.strokeStyle = penColor || '#1d4ed8';
+        ctx.lineWidth = 1.5;
+
+        // Classic Turtle Triangular Arrow
+        ctx.beginPath();
+        ctx.moveTo(11, 0);       // Nose / Tip
+        ctx.lineTo(-8, -6);     // Left fin
+        ctx.lineTo(-4, 0);      // Inner notch
+        ctx.lineTo(-8, 6);      // Right fin
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // If multiple turtles, draw small TID badge
+        if (tid && Object.keys(this.turtles).length > 1) {
+          ctx.rotate(headingDeg * Math.PI / 180); // Unrotate for horizontal text
+          ctx.fillStyle = '#2563eb';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillText(`T${tid}`, 10, -8);
+        }
+
+        ctx.restore();
+      }
+
+      updateStatusBadge() {
+        const turtleList = Object.values(this.turtles);
+        const activeTurtle = turtleList[0] || { x: 0, y: 0, heading: 0 };
+
+        const elX = document.getElementById('valTurtleX');
+        const elY = document.getElementById('valTurtleY');
+        const elH = document.getElementById('valTurtleHeading');
+        const elS = document.getElementById('valTurtleSteps');
+
+        if (elX) elX.textContent = Math.round(activeTurtle.x);
+        if (elY) elY.textContent = Math.round(activeTurtle.y);
+        if (elH) elH.textContent = Math.round(activeTurtle.heading) + '°';
+        if (elS) elS.textContent = `${this.cmdIndex} / ${this.commands.length}`;
+      }
+
+      updatePlayPauseBtn(playing) {
+        const btnText = document.getElementById('labelTurtlePlay');
+        const btnSvg = document.getElementById('svgTurtlePlay');
+        if (!btnText || !btnSvg) return;
+
+        if (playing) {
+          btnText.textContent = 'Pause';
+          btnSvg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+        } else {
+          btnText.textContent = (this.cmdIndex >= this.commands.length && this.commands.length > 0) ? 'Replay' : 'Play';
+          btnSvg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+        }
+      }
+
+      play() {
+        if (this.cmdIndex >= this.commands.length && this.commands.length > 0) {
+          this.replay();
+          return;
+        }
+        this.isPlaying = true;
+        this.updatePlayPauseBtn(true);
+        this.loop();
+      }
+
+      pause() {
+        this.isPlaying = false;
+        this.updatePlayPauseBtn(false);
+        if (this.animFrameId) {
+          cancelAnimationFrame(this.animFrameId);
+          this.animFrameId = null;
+        }
+      }
+
+      togglePlayPause() {
+        if (this.isPlaying) {
+          this.pause();
+        } else {
+          this.play();
+        }
+      }
+
+      replay() {
+        if (this.commands.length === 0) return;
+        this.loadCommands(this.commands);
+      }
+
+      clear() {
+        this.pause();
+        this.commands = [];
+        this.cmdIndex = 0;
+        this.drawnItems = [];
+        this.stamps = {};
+        this.turtles = {};
+        const isDark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-navy');
+        this.bgColor = isDark ? '#0f172a' : '#ffffff';
+        this.redraw();
+        this.updateStatusBadge();
+        const placeholder = document.getElementById('turtlePlaceholder');
+        if (placeholder) placeholder.classList.remove('hidden');
+        showToast('Turtle canvas cleared');
+      }
+
+      exportPNG() {
+        if (!this.canvas) return;
+        const link = document.createElement('a');
+        link.download = `nrg_turtle_drawing_${Date.now()}.png`;
+        link.href = this.canvas.toDataURL('image/png');
+        link.click();
+        showToast('Turtle graphic exported as PNG');
+      }
+
+      bindControls() {
+        const btnPlayPause = document.getElementById('btnTurtlePlayPause');
+        if (btnPlayPause) btnPlayPause.addEventListener('click', () => this.togglePlayPause());
+
+        const btnRestart = document.getElementById('btnTurtleRestart');
+        if (btnRestart) btnRestart.addEventListener('click', () => this.replay());
+
+        const btnClear = document.getElementById('btnTurtleClear');
+        if (btnClear) btnClear.addEventListener('click', () => this.clear());
+
+        const btnExport = document.getElementById('btnTurtleExport');
+        if (btnExport) btnExport.addEventListener('click', () => this.exportPNG());
+
+        const speedSelect = document.getElementById('turtleSpeedSelect');
+        if (speedSelect) {
+          speedSelect.addEventListener('change', (e) => {
+            this.speed = parseInt(e.target.value, 10);
+            if (!this.isPlaying && this.cmdIndex < this.commands.length) {
+              this.play();
+            }
+          });
+        }
+
+        const btnStarterSpiral = document.getElementById('btnStarterSpiral');
+        if (btnStarterSpiral) {
+          btnStarterSpiral.addEventListener('click', () => loadTurtleTemplate('spiral'));
+        }
+
+        const btnStarterStar = document.getElementById('btnStarterStar');
+        if (btnStarterStar) {
+          btnStarterStar.addEventListener('click', () => loadTurtleTemplate('star'));
+        }
+      }
+    }
+
+    function loadTurtleTemplate(type) {
+      if (typeof switchLanguage === 'function') {
+        switchLanguage('python');
+      }
+      if (typeof navigateToSection === 'function') {
+        navigateToSection('editor');
+      }
+
+      if (type === 'spiral') {
+        codeInput.value = `import turtle
+
+t = turtle.Turtle()
+t.speed(0)
+turtle.bgcolor("#0f172a")
+
+colors = ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185", "#34d399"]
+
+for i in range(120):
+    t.pencolor(colors[i % len(colors)])
+    t.pensize(i / 30 + 1)
+    t.forward(i * 2)
+    t.left(59)
+
+turtle.done()
+`;
+      } else if (type === 'star') {
+        codeInput.value = `import turtle
+
+t = turtle.Turtle()
+t.speed(0)
+turtle.bgcolor("#1e1b4b")
+
+t.color("#facc15", "#f59e0b")
+t.begin_fill()
+
+for i in range(36):
+    t.forward(160)
+    t.left(170)
+
+t.end_fill()
+t.hideturtle()
+turtle.done()
+`;
+      }
+
+      currentCode = codeInput.value;
+      activeLineNumber = 1;
+      updateEditorDisplay();
+      switchTerminalTab('turtle');
+      showToast('Turtle starter template loaded! Click Run Code to render.');
+    }
+
+    // Initialize Global Turtle Engine
+    window.nrgTurtleEngine = new NRGTurtleEngine('turtleCanvas', 'turtleViewport');
 
     // Terminal Clear Button
     function clearTerminal() {

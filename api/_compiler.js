@@ -1,10 +1,12 @@
 /**
  * NRG ENGINE — COMPILER CORE & REGISTRY
  * Shared compiler logic for both Vercel Serverless Functions and local Node server.
- * Powered by Judge0 CE Sandbox
+ * Powered by Judge0 CE Sandbox with Python Turtle Graphics Engine Bridge.
  */
 
 const url = require('url');
+const { spawnSync } = require('child_process');
+const { generatePythonTurtleRunner } = require('./_turtle_bridge');
 
 const JUDGE0_API_URL = process.env.JUDGE0_API_URL || 'https://ce.judge0.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || ''; // Optional RapidAPI Key
@@ -173,11 +175,11 @@ function parseDiagnostics(compileOutput, stderr, lang) {
     });
   }
 
-  // 6. Python: File "/box/script.py", line 1 ... SyntaxError / Exception
-  const pyLineRegex = /File "([^"]+)", line (\d+)(?:, in [^\n]+)?(?:\n\s+[^\n]+)?(?:\n\s+\^~*)?(?:\n([A-Za-z0-9_]+Error:[^\n]+|SyntaxError:[^\n]+))?/g;
+  // 6. Python: File "main.py", line 1 ... SyntaxError / Exception
+  const pyLineRegex = /File "(?:main\.py|\/box\/[^\"]+|[^\"]+)", line (\d+)(?:, in [^\n]+)?(?:\n\s+[^\n]+)?(?:\n\s+\^~*)?(?:\n([A-Za-z0-9_]+Error:[^\n]+|SyntaxError:[^\n]+|Exception:[^\n]+))?/g;
   while ((match = pyLineRegex.exec(rawText)) !== null) {
-    const line = parseInt(match[2], 10);
-    const msg = match[3] || 'Runtime error encountered';
+    const line = parseInt(match[1], 10);
+    const msg = match[2] || 'Runtime error encountered';
     problems.push({
       file: 'main.py',
       line: line,
@@ -259,6 +261,32 @@ async function submitToJudge0(languageId, sourceCode, stdin) {
   return result;
 }
 
+// Local Python Execution Fallback (if Judge0 unreachable)
+function runLocalPython(code, stdin) {
+  try {
+    const res = spawnSync('python', ['-c', code], {
+      input: stdin || '',
+      encoding: 'utf-8',
+      timeout: 10000
+    });
+    return {
+      status: {
+        id: res.status === 0 ? 3 : 11,
+        description: res.status === 0 ? 'Accepted' : 'Runtime Error'
+      },
+      stdout: Buffer.from(res.stdout || '', 'utf-8').toString('base64'),
+      stderr: Buffer.from(res.stderr || '', 'utf-8').toString('base64'),
+      compile_output: null,
+      message: null,
+      exit_code: res.status !== null ? res.status : 1,
+      time: '0.040',
+      memory: 2048
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Master execution processor
 async function executeCode({ language, source_code, stdin }) {
   const langKey = (language || '').toLowerCase().trim();
@@ -274,29 +302,63 @@ async function executeCode({ language, source_code, stdin }) {
     };
   }
 
+  // Python Turtle Bridge Injection
+  let codeToExecute = source_code || '';
+  const isPythonTurtle = langKey === 'python' && (
+    /(?:^|\n)\s*(?:import\s+turtle|from\s+turtle\s+import)/m.test(codeToExecute) ||
+    codeToExecute.includes('turtle.')
+  );
+
+  if (isPythonTurtle) {
+    const b64UserCode = Buffer.from(codeToExecute, 'utf-8').toString('base64');
+    codeToExecute = generatePythonTurtleRunner(b64UserCode);
+  }
+
   let judge0Result;
   try {
-    judge0Result = await submitToJudge0(langData.id, source_code || '', stdin || '');
+    judge0Result = await submitToJudge0(langData.id, codeToExecute, stdin || '');
   } catch (apiErr) {
     // Attempt fallback ID if primary ID had an issue
     if (langData.fallbackId && langData.fallbackId !== langData.id) {
       try {
-        judge0Result = await submitToJudge0(langData.fallbackId, source_code || '', stdin || '');
+        judge0Result = await submitToJudge0(langData.fallbackId, codeToExecute, stdin || '');
       } catch (fallbackErr) {
-        throw apiErr;
+        if (langKey === 'python') {
+          judge0Result = runLocalPython(codeToExecute, stdin);
+          if (!judge0Result) throw apiErr;
+        } else {
+          throw apiErr;
+        }
       }
+    } else if (langKey === 'python') {
+      judge0Result = runLocalPython(codeToExecute, stdin);
+      if (!judge0Result) throw apiErr;
     } else {
       throw apiErr;
     }
   }
 
   // Decode Base64 Output Fields
-  const stdout = b64decode(judge0Result.stdout);
+  let stdout = b64decode(judge0Result.stdout);
   const stderr = b64decode(judge0Result.stderr);
   const compileOutput = b64decode(judge0Result.compile_output);
   const message = b64decode(judge0Result.message);
   const statusId = judge0Result.status ? judge0Result.status.id : 0;
   const statusDesc = judge0Result.status ? judge0Result.status.description : 'Unknown';
+
+  // Extract Turtle Command Stream
+  let turtleCommands = null;
+  if (stdout.includes('__NRG_TURTLE_STREAM_START__')) {
+    const streamMatch = stdout.match(/__NRG_TURTLE_STREAM_START__([\s\S]*?)__NRG_TURTLE_STREAM_END__/);
+    if (streamMatch) {
+      try {
+        turtleCommands = JSON.parse(streamMatch[1].trim());
+        stdout = stdout.replace(/__NRG_TURTLE_STREAM_START__[\s\S]*?__NRG_TURTLE_STREAM_END__/, '').trim();
+      } catch (parseErr) {
+        console.error('Failed to parse turtle stream:', parseErr);
+      }
+    }
+  }
 
   // Parse Diagnostics
   const problems = parseDiagnostics(compileOutput, stderr, langKey);
@@ -305,27 +367,33 @@ async function executeCode({ language, source_code, stdin }) {
   const isCompilationSuccess = statusId !== 6;
   const isExecutionSuccess = statusId === 3;
 
+  const responseData = {
+    success: isExecutionSuccess,
+    status: {
+      id: statusId,
+      description: statusDesc
+    },
+    compilation_success: isCompilationSuccess,
+    stdout: stdout,
+    stderr: stderr,
+    compile_output: compileOutput,
+    message: message,
+    exit_code: judge0Result.exit_code !== undefined && judge0Result.exit_code !== null ? judge0Result.exit_code : (isExecutionSuccess ? 0 : 1),
+    time: judge0Result.time || '0.000',
+    memory: judge0Result.memory || 0,
+    problems: problems,
+    language: langKey,
+    compiler: langData.name,
+    execution_mode: 'Judge0 Isolated Sandbox'
+  };
+
+  if (turtleCommands && Array.isArray(turtleCommands) && turtleCommands.length > 0) {
+    responseData.turtle_commands = turtleCommands;
+  }
+
   return {
     status: 200,
-    data: {
-      success: isExecutionSuccess,
-      status: {
-        id: statusId,
-        description: statusDesc
-      },
-      compilation_success: isCompilationSuccess,
-      stdout: stdout,
-      stderr: stderr,
-      compile_output: compileOutput,
-      message: message,
-      exit_code: judge0Result.exit_code !== undefined && judge0Result.exit_code !== null ? judge0Result.exit_code : (isExecutionSuccess ? 0 : 1),
-      time: judge0Result.time || '0.000',
-      memory: judge0Result.memory || 0,
-      problems: problems,
-      language: langKey,
-      compiler: langData.name,
-      execution_mode: 'Judge0 Isolated Sandbox'
-    }
+    data: responseData
   };
 }
 

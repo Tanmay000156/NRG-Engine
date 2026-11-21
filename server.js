@@ -1,7 +1,7 @@
 /**
  * NRG ENGINE — COMPILER BACKEND SERVER (LOCAL DEV)
  * Multi-Language Execution Service powered by Judge0 CE Sandbox
- * Compatible with Vercel Serverless Architecture
+ * Compatible with Vercel Serverless Architecture & Python Turtle Graphics
  */
 
 const http = require('http');
@@ -54,7 +54,8 @@ const server = http.createServer(async (req, res) => {
       service: 'NRG Engine Compiler Backend',
       backend: 'Judge0 CE',
       version: '1.0.0',
-      supported_languages: Object.keys(LANGUAGE_REGISTRY)
+      supported_languages: Object.keys(LANGUAGE_REGISTRY),
+      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics']
     }));
     return;
   }
@@ -126,6 +127,6 @@ server.listen(PORT, () => {
   console.log(`⚡ NRG ENGINE — COMPILER BACKEND SERVER ONLINE`);
   console.log(`📡 URL: http://localhost:${PORT}`);
   console.log(`🔧 Execution Endpoint: http://localhost:${PORT}/api/execute`);
-  console.log(`🛡 Mode: Real Multi-Language Compiler (Judge0 CE)`);
+  console.log(`🛡 Mode: Real Multi-Language Compiler + Python Turtle Graphics`);
   console.log(`====================================================`);
 });
