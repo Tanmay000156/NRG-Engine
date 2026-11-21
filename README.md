@@ -67,9 +67,11 @@ Accessible via the `⋮` button in the editor toolbar with 19 IDE operations:
 
 | Feature | Screenshot |
 | :--- | :--- |
+| **TANMAY NRG Signature (Light Mode)** | ![Signature Light](assets/screenshots/nrg_signature_light_mode.png) |
+| **TANMAY NRG Signature (Dark Mode)** | ![Signature Dark](assets/screenshots/nrg_signature_dark_mode.png) |
 | **Multiline Star Triangle Output** | ![Star Triangle](assets/screenshots/nrg_ide_star_triangle_verified.png) |
 | **Three-Dot IDE Workspace Menu** | ![Workspace Menu](assets/screenshots/nrg_ide_threedot_menu_verified.png) |
-| **Execution History & Dev Signature** | ![Run History](assets/screenshots/nrg_ide_history_verified.png) |
+| **Execution Run History Console** | ![Run History](assets/screenshots/nrg_ide_history_verified.png) |
 
 ---
 
