@@ -1,0 +1,25 @@
+{
+  "name": "nrg-interactive-worker",
+  "version": "2.0.0",
+  "description": "Dedicated Persistent Execution Worker for NRG Engine 2.0 Interactive STDIN/Terminal",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js",
+    "dev": "node worker.js"
+  },
+  "keywords": [
+    "nrg-engine",
+    "interactive-worker",
+    "websocket",
+    "terminal",
+    "compiler"
+  ],
+  "author": "Tanmay Verma",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -389,7 +389,7 @@ function attachWebSocketServer(server) {
 
   server.on('upgrade', (request, socket, head) => {
     const parsed = url.parse(request.url, true);
-    if (parsed.pathname === '/api/interactive/ws') {
+    if (parsed.pathname === '/api/interactive/ws' || parsed.pathname === '/ws') {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request, parsed.query);
       });

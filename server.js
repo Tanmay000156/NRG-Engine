@@ -46,7 +46,7 @@ const server = http.createServer(async (req, res) => {
   const pathname = parsedUrl.pathname;
 
   // 1. Health Endpoint
-  if (req.method === 'GET' && pathname === '/api/health') {
+  if (req.method === 'GET' && (pathname === '/api/health' || pathname === '/health')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'online',
