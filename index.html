@@ -1702,55 +1702,6 @@
       border-color: rgba(59, 130, 246, 0.4);
       color: #93c5fd;
     }
-    /* Dedicated Interactive Worker Status Pill */
-    .worker-status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 11px;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: var(--radius-pill);
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.25s ease;
-      border: 1px solid transparent;
-      line-height: 1.2;
-    }
-    .worker-status-badge.online {
-      background: rgba(16, 185, 129, 0.12);
-      border-color: rgba(16, 185, 129, 0.35);
-      color: #10b981;
-    }
-    .worker-status-badge.offline {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.35);
-      color: #ef4444;
-    }
-    .worker-status-badge.connecting {
-      background: rgba(245, 158, 11, 0.12);
-      border-color: rgba(245, 158, 11, 0.35);
-      color: #f59e0b;
-    }
-    .worker-status-badge:hover {
-      filter: brightness(1.12);
-      transform: translateY(-0.5px);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-    .worker-pulse-dot {
-      width: 6.5px;
-      height: 6.5px;
-      border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 5px currentColor;
-    }
-    .worker-status-badge.online .worker-pulse-dot {
-      animation: workerPulse 2s infinite ease-in-out;
-    }
-    @keyframes workerPulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.85); }
-    }
 
     /* Terminal Lines & Diagnostic Blocks */
     .term-error-line {
@@ -4482,12 +4433,6 @@
 
             <!-- Terminal Status & Tools -->
             <div class="terminal-controls">
-              <!-- Dedicated Interactive Worker Status Pill -->
-              <span class="worker-status-badge offline" id="workerStatusBadge" title="Interactive Execution Worker: Click to configure endpoint">
-                <span class="worker-pulse-dot" id="workerPulseDot"></span>
-                <span id="workerStatusText">Worker Offline</span>
-              </span>
-
               <span class="terminal-status-badge ready" id="terminalStatusBadge">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12"></polyline>
@@ -7522,160 +7467,26 @@ echo "Hello, NRG Engine from PHP!\\n";
       return `${wsProtocol}//${window.location.host}/api/interactive/ws`;
     }
 
-    function updateWorkerStatusUI(isOnline, statusDesc, currentUrl) {
-      const badge = document.getElementById('workerStatusBadge');
-      const text = document.getElementById('workerStatusText');
-      const modalStatus = document.getElementById('workerModalStatusText');
-
-      if (badge && text) {
-        badge.className = isOnline ? 'worker-status-badge online' : 'worker-status-badge offline';
-        text.textContent = isOnline ? 'Worker Online' : 'Worker Offline';
-        badge.title = `Execution Worker: ${isOnline ? 'Online' : 'Offline'} (${currentUrl}) - Click to configure`;
-      }
-
-      if (modalStatus) {
-        modalStatus.textContent = isOnline ? '✔ Online' : '✖ Offline';
-        modalStatus.style.color = isOnline ? '#10b981' : '#ef4444';
-      }
+    function updateWorkerStatusUI() {
+      // Persistent worker status pill removed from toolbar per design directive
     }
 
     async function checkWorkerHealth() {
-      const workerUrl = getInteractiveWorkerUrl();
-      const badge = document.getElementById('workerStatusBadge');
-      if (badge && !badge.classList.contains('online')) {
-        badge.className = 'worker-status-badge connecting';
-        const txt = document.getElementById('workerStatusText');
-        if (txt) txt.textContent = 'Checking...';
-      }
-
-      // 1. HTTP probe test on health endpoint
-      const httpUrl = workerUrl
-        .replace(/^wss:/i, 'https:')
-        .replace(/^ws:/i, 'http:')
-        .replace(/\/ws$/i, '/health')
-        .replace(/\/api\/interactive\/ws$/i, '/health');
-
       try {
+        const workerUrl = getInteractiveWorkerUrl();
+        const httpUrl = workerUrl
+          .replace(/^wss:/i, 'https:')
+          .replace(/^ws:/i, 'http:')
+          .replace(/\/ws$/i, '/health')
+          .replace(/\/api\/interactive\/ws$/i, '/health');
         const res = await fetch(httpUrl, { method: 'GET', signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
-          if (data.status === 'ok' || data.service || data.status === 'online') {
-            updateWorkerStatusUI(true, 'Worker Online', workerUrl);
-            return true;
-          }
+          return !!(data.status === 'ok' || data.service || data.status === 'online');
         }
-      } catch (httpErr) {
-        // Fallback: Test WebSocket handshake directly
-        try {
-          return new Promise((resolve) => {
-            let done = false;
-            let testWs;
-            try {
-              testWs = new WebSocket(workerUrl);
-            } catch(e) {
-              updateWorkerStatusUI(false, 'Worker Offline', workerUrl);
-              return resolve(false);
-            }
-
-            const timer = setTimeout(() => {
-              if (!done) {
-                done = true;
-                try { testWs.close(); } catch(e) {}
-                updateWorkerStatusUI(false, 'Worker Offline', workerUrl);
-                resolve(false);
-              }
-            }, 3000);
-
-            testWs.onopen = () => {
-              if (!done) {
-                done = true;
-                clearTimeout(timer);
-                try { testWs.close(); } catch(e) {}
-                updateWorkerStatusUI(true, 'Worker Online', workerUrl);
-                resolve(true);
-              }
-            };
-
-            testWs.onerror = () => {
-              if (!done) {
-                done = true;
-                clearTimeout(timer);
-                updateWorkerStatusUI(false, 'Worker Offline', workerUrl);
-                resolve(false);
-              }
-            };
-          });
-        } catch(wsErr) {
-          updateWorkerStatusUI(false, 'Worker Offline', workerUrl);
-          return false;
-        }
-      }
-
-      updateWorkerStatusUI(false, 'Worker Offline', workerUrl);
+      } catch (e) {}
       return false;
     }
-
-    function openWorkerConfigModal() {
-      const modal = document.getElementById('modalWorkerConfig');
-      const input = document.getElementById('inputWorkerConfigUrl');
-      if (modal && input) {
-        input.value = getInteractiveWorkerUrl();
-        modal.style.display = 'flex';
-        checkWorkerHealth();
-      }
-    }
-
-    function closeWorkerConfigModal() {
-      const modal = document.getElementById('modalWorkerConfig');
-      if (modal) modal.style.display = 'none';
-    }
-
-    // Modal listeners
-    document.addEventListener('DOMContentLoaded', () => {
-      const badge = document.getElementById('workerStatusBadge');
-      if (badge) badge.addEventListener('click', openWorkerConfigModal);
-
-      const btnClose = document.getElementById('btnCloseWorkerModal');
-      if (btnClose) btnClose.addEventListener('click', closeWorkerConfigModal);
-
-      const btnCancel = document.getElementById('btnCancelWorkerConfig');
-      if (btnCancel) btnCancel.addEventListener('click', closeWorkerConfigModal);
-
-      const btnReset = document.getElementById('btnResetWorkerDefault');
-      if (btnReset) {
-        btnReset.addEventListener('click', () => {
-          localStorage.removeItem('nrg_worker_url');
-          const input = document.getElementById('inputWorkerConfigUrl');
-          if (input) input.value = getInteractiveWorkerUrl();
-          checkWorkerHealth();
-        });
-      }
-
-      const btnSave = document.getElementById('btnSaveWorkerConfig');
-      if (btnSave) {
-        btnSave.addEventListener('click', async () => {
-          const input = document.getElementById('inputWorkerConfigUrl');
-          if (input && input.value.trim()) {
-            localStorage.setItem('nrg_worker_url', input.value.trim());
-          } else {
-            localStorage.removeItem('nrg_worker_url');
-          }
-          btnSave.textContent = 'Testing...';
-          const ok = await checkWorkerHealth();
-          btnSave.textContent = 'Save & Test';
-          if (ok) {
-            showToast('✔ Worker Connected Successfully!');
-            closeWorkerConfigModal();
-          } else {
-            showToast('⚠️ Worker Unreachable at specified URL');
-          }
-        });
-      }
-
-      // Initial check & periodic polling
-      setTimeout(checkWorkerHealth, 1000);
-      setInterval(checkWorkerHealth, 30000);
-    });
 
     async function startInteractiveExecution(lang, code) {
       const btnActionRun = document.getElementById('btnActionRun');
@@ -7728,7 +7539,7 @@ echo "Hello, NRG Engine from PHP!\\n";
         function handleInteractiveError(errMsg) {
           clearTimeout(connectionTimeout);
           terminalStatusBadge.className = 'terminal-status-badge error';
-          terminalStatusText.textContent = 'Worker Offline';
+          terminalStatusText.textContent = 'Connection Error';
     
           termLogStream.innerHTML += 
             '<div class="term-error-line">' +
@@ -7744,8 +7555,8 @@ echo "Hello, NRG Engine from PHP!\\n";
             '<div class="term-meta-line" style="color:#ef4444; font-weight:600;">' +
               'Interactive execution halted. Automatic execution with empty stdin was blocked.' +
             '</div>';
-          if (stdoutView) stdoutView.textContent = '[Interactive Worker Offline]\n' + errMsg;
-          resetInteractiveUI('Worker Offline', 1);
+          if (stdoutView) stdoutView.textContent = '[Connection Error]\n' + errMsg;
+          resetInteractiveUI('Connection Error', 1);
         }
     
         ws.onopen = () => {
@@ -10977,39 +10788,5 @@ public class Main {
     
 
 
-  <!-- Worker Configuration Modal -->
-  <div class="modal-backdrop" id="modalWorkerConfig" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; width:90%; max-width:540px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.4); color:var(--text-main);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:20px;">⚡</span>
-          <h3 style="margin:0; font-size:16px; font-weight:700;">Interactive Execution Worker Configuration</h3>
-        </div>
-        <button id="btnCloseWorkerModal" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
-      </div>
-
-      <div style="font-size:13px; color:var(--text-secondary); line-height:1.5; margin-bottom:16px;">
-        NRG Engine uses a persistent execution worker microservice for live interactive terminal standard input (<code style="background:var(--bg-input); padding:2px 6px; border-radius:4px;">scanf()</code>, <code style="background:var(--bg-input); padding:2px 6px; border-radius:4px;">input()</code>, menus).
-      </div>
-
-      <div style="margin-bottom:14px;">
-        <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px; color:var(--text-main);">WebSocket Worker Endpoint (wss:// or ws://)</label>
-        <input type="text" id="inputWorkerConfigUrl" style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-family:monospace; font-size:13px;" placeholder="wss://your-worker-domain.com/ws">
-      </div>
-
-      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--bg-input); border-radius:8px; margin-bottom:18px; font-size:12px;">
-        <span>Current Worker Status:</span>
-        <span id="workerModalStatusText" style="font-weight:700; color:#ef4444;">Checking...</span>
-      </div>
-
-      <div style="display:flex; justify-content:space-between; gap:10px;">
-        <button id="btnResetWorkerDefault" style="padding:8px 14px; border-radius:6px; border:1px solid var(--border-color); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:12px;">Reset to Localhost</button>
-        <div style="display:flex; gap:8px;">
-          <button id="btnCancelWorkerConfig" style="padding:8px 14px; border-radius:6px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer; font-size:12px;">Cancel</button>
-          <button id="btnSaveWorkerConfig" style="padding:8px 18px; border-radius:6px; border:none; background:var(--primary-blue); color:#fff; cursor:pointer; font-size:12px; font-weight:700;">Save & Test</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </body>
 </html>
