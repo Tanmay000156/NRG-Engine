@@ -7,3 +7,5 @@ avatar_b64.txt
 .env.local
 *.tmp
 server.js
+index.legacy.html
+dist

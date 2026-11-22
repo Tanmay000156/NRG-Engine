@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "dev:ui": "vite",
+    "build:vite": "vite build",
     "test": "node tests/test_10_languages.js",
     "test:vercel": "node tests/test_vercel_handlers.js"
   },
@@ -31,5 +33,11 @@
     "node": ">=18.0.0"
   },
   "author": "Tanmay Verma",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  }
 }

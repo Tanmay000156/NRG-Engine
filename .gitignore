@@ -2,6 +2,10 @@
 node_modules/
 package-lock.json
 
+# Build output & legacy backup
+dist/
+index.legacy.html
+
 # Environment and secrets
 .env
 *.local

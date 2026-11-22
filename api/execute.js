@@ -1,18 +1,12 @@
 /**
  * NRG ENGINE — VERCEL SERVERLESS FUNCTION: /api/execute
- * Handles program compilation and execution requests.
+ * Handles program compilation and execution requests with security hardening.
  */
 
 const { executeCode } = require('./_compiler');
-
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-}
+const { getClientIp, checkRateLimit, applySecurityHeaders } = require('./_security');
 
 async function parseBody(req) {
-  // If Vercel or middleware already parsed body
   if (req.body !== undefined && req.body !== null) {
     if (typeof req.body === 'object') return req.body;
     if (typeof req.body === 'string') {
@@ -24,12 +18,11 @@ async function parseBody(req) {
     }
   }
 
-  // Fallback to reading request stream
   return new Promise((resolve) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 2 * 1024 * 1024) { // 2MB limit
+      if (body.length > 512 * 1024) { // 512KB limit
         req.destroy();
       }
     });
@@ -45,7 +38,8 @@ async function parseBody(req) {
 }
 
 module.exports = async (req, res) => {
-  setCorsHeaders(res);
+  const reqOrigin = req.headers['origin'] || req.headers['host'] || '';
+  applySecurityHeaders(res, reqOrigin);
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -58,7 +52,21 @@ module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({
       success: false,
-      error: `Method Not Allowed. Use POST.`
+      error: 'Method Not Allowed. Use POST.'
+    }));
+    return;
+  }
+
+  // Rate Limiting Enforcement
+  const clientIp = getClientIp(req);
+  const rateLimitResult = checkRateLimit(clientIp);
+  if (!rateLimitResult.allowed) {
+    res.statusCode = 429;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: false,
+      status: { id: 14, description: 'Rate Limit Exceeded' },
+      error: rateLimitResult.error
     }));
     return;
   }
