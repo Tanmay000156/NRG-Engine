@@ -55,12 +55,26 @@ const server = http.createServer(async (req, res) => {
       backend: 'Judge0 CE',
       version: '1.0.0',
       supported_languages: Object.keys(LANGUAGE_REGISTRY),
-      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics']
+      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics', 'universal_graphics_engine']
     }));
     return;
   }
 
   // 2. Languages Endpoint
+  // 2.5 Git Branch Endpoint
+  if (req.method === 'GET' && pathname === '/api/git-branch') {
+    const { execSync } = require('child_process');
+    try {
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { timeout: 1000, cwd: __dirname }).toString().trim();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: true, branch }));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ available: false }));
+    }
+    return;
+  }
+
   if (req.method === 'GET' && pathname === '/api/languages') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(LANGUAGE_REGISTRY));

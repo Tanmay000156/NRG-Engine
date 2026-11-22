@@ -23,6 +23,7 @@ module.exports = async (req, res) => {
     service: 'NRG Engine Compiler Backend',
     backend: 'Judge0 CE',
     version: '1.0.0',
-    supported_languages: Object.keys(LANGUAGE_REGISTRY)
+    supported_languages: Object.keys(LANGUAGE_REGISTRY),
+    features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics', 'universal_graphics_engine']
   }));
 };

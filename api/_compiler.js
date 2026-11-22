@@ -7,6 +7,7 @@
 const url = require('url');
 const { spawnSync } = require('child_process');
 const { generatePythonTurtleRunner } = require('./_turtle_bridge');
+const { detectGraphics, prepareExecutionCode, extractGraphicsOutput } = require('./_graphics_bridge');
 
 const JUDGE0_API_URL = process.env.JUDGE0_API_URL || 'https://ce.judge0.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || ''; // Optional RapidAPI Key
@@ -134,6 +135,31 @@ function parseDiagnostics(compileOutput, stderr, lang) {
     }
   }
 
+  // 2b. Java HeadlessException & Unsupported Desktop GUI Diagnostics
+  if (lang === 'java' && (rawText.includes('HeadlessException') || rawText.includes('No X11 DISPLAY'))) {
+    const mainMatch = rawText.match(/(?:at\s+([A-Za-z0-9_]+)\.[A-Za-z0-9_]+\(([A-Za-z0-9_]+\.java):(\d+)\))/);
+    problems.push({
+      file: mainMatch ? mainMatch[2] : 'Main.java',
+      line: mainMatch ? parseInt(mainMatch[3], 10) : 1,
+      column: 1,
+      severity: 'error',
+      message: 'Java Desktop GUI window (JFrame/AWT Window) cannot display directly in headless cloud environments. Use headless BufferedImage & Graphics2D (or JPanel offscreen render) to stream visuals into the NRG Graphics viewport.',
+      raw: 'java.awt.HeadlessException: No X11 DISPLAY variable was set'
+    });
+  }
+
+  // 2c. JavaFX Dependency Notice
+  if (lang === 'java' && (rawText.includes('package javafx') || rawText.includes('javafx does not exist'))) {
+    problems.push({
+      file: 'Main.java',
+      line: 1,
+      column: 1,
+      severity: 'warning',
+      message: 'JavaFX runtime is not included in the standard server JDK. Use Java AWT / Swing Graphics2D for high-performance 2D visual computing.',
+      raw: 'JavaFX library not found'
+    });
+  }
+
   // 3. Rust: error[E0425]: cannot find value ... --> src/main.rs:2:5
   const rustRegex = /(error(?:\[[^\]]+\])?|warning):\s*([^\n]+)\n\s*-->\s*[^:\n]+:(\d+):(\d+)/gi;
   while ((match = rustRegex.exec(rawText)) !== null) {
@@ -231,6 +257,14 @@ async function submitToJudge0(languageId, sourceCode, stdin) {
     max_file_size: 1024      // 1 MB max file
   };
 
+  // Compiler & Linker Configuration
+  // Link libm for GCC C (IDs 103, 50, 48, 49) so math functions (sin, cos, sqrt, pow, atan2) link cleanly
+  if (languageId === 103 || languageId === 50 || languageId === 48 || languageId === 49) {
+    payload.compiler_options = "-lm";
+  } else if (languageId === 105 || languageId === 54 || languageId === 53 || languageId === 52) {
+    payload.compiler_options = "-std=c++17 -O2 -lm";
+  }
+
   const endpoint = `${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=true`;
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -302,17 +336,10 @@ async function executeCode({ language, source_code, stdin }) {
     };
   }
 
-  // Python Turtle Bridge Injection
-  let codeToExecute = source_code || '';
-  const isPythonTurtle = langKey === 'python' && (
-    /(?:^|\n)\s*(?:import\s+turtle|from\s+turtle\s+import)/m.test(codeToExecute) ||
-    codeToExecute.includes('turtle.')
-  );
-
-  if (isPythonTurtle) {
-    const b64UserCode = Buffer.from(codeToExecute, 'utf-8').toString('base64');
-    codeToExecute = generatePythonTurtleRunner(b64UserCode);
-  }
+  // Universal Graphics Bridge Preparation
+  const graphicsDetection = detectGraphics(langKey, source_code);
+  const prepared = prepareExecutionCode(langKey, source_code);
+  let codeToExecute = prepared.code;
 
   let judge0Result;
   try {
@@ -338,6 +365,17 @@ async function executeCode({ language, source_code, stdin }) {
     }
   }
 
+  // If Judge0 failed with missing Python library (e.g. matplotlib/cv2) and local Python is available, attempt local run
+  if (langKey === 'python' && judge0Result && judge0Result.status && judge0Result.status.id !== 3) {
+    const rawStderr = b64decode(judge0Result.stderr);
+    if (rawStderr.includes('No module named') || rawStderr.includes('ModuleNotFoundError')) {
+      const localRun = runLocalPython(codeToExecute, stdin);
+      if (localRun && localRun.status && localRun.status.id === 3) {
+        judge0Result = localRun;
+      }
+    }
+  }
+
   // Decode Base64 Output Fields
   let stdout = b64decode(judge0Result.stdout);
   const stderr = b64decode(judge0Result.stderr);
@@ -346,19 +384,10 @@ async function executeCode({ language, source_code, stdin }) {
   const statusId = judge0Result.status ? judge0Result.status.id : 0;
   const statusDesc = judge0Result.status ? judge0Result.status.description : 'Unknown';
 
-  // Extract Turtle Command Stream
-  let turtleCommands = null;
-  if (stdout.includes('__NRG_TURTLE_STREAM_START__')) {
-    const streamMatch = stdout.match(/__NRG_TURTLE_STREAM_START__([\s\S]*?)__NRG_TURTLE_STREAM_END__/);
-    if (streamMatch) {
-      try {
-        turtleCommands = JSON.parse(streamMatch[1].trim());
-        stdout = stdout.replace(/__NRG_TURTLE_STREAM_START__[\s\S]*?__NRG_TURTLE_STREAM_END__/, '').trim();
-      } catch (parseErr) {
-        console.error('Failed to parse turtle stream:', parseErr);
-      }
-    }
-  }
+  // Extract Graphics Streams (Turtle, Matplotlib, OpenCV, PPM, SVG)
+  const extracted = extractGraphicsOutput(stdout);
+  stdout = extracted.stdout;
+  const graphicsOutput = extracted.graphicsOutput;
 
   // Parse Diagnostics
   const problems = parseDiagnostics(compileOutput, stderr, langKey);
@@ -384,11 +413,16 @@ async function executeCode({ language, source_code, stdin }) {
     problems: problems,
     language: langKey,
     compiler: langData.name,
-    execution_mode: 'Judge0 Isolated Sandbox'
+    execution_mode: judge0Result.memory === 2048 ? 'Local Python Environment' : 'Judge0 Isolated Sandbox',
+    is_graphics: graphicsDetection.isGraphics || !!graphicsOutput,
+    graphics_engine: (graphicsOutput && graphicsOutput.engine) || graphicsDetection.engine || null
   };
 
-  if (turtleCommands && Array.isArray(turtleCommands) && turtleCommands.length > 0) {
-    responseData.turtle_commands = turtleCommands;
+  if (graphicsOutput) {
+    responseData.graphics_output = graphicsOutput;
+    if (graphicsOutput.type === 'turtle' && Array.isArray(graphicsOutput.commands)) {
+      responseData.turtle_commands = graphicsOutput.commands;
+    }
   }
 
   return {

@@ -3,6 +3,9 @@
   "version": 2,
   "cleanUrls": true,
   "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" }
+  ],
   "functions": {
     "api/*.js": {
       "maxDuration": 30,
