@@ -10,6 +10,7 @@ const path = require('path');
 const url = require('url');
 const { LANGUAGE_REGISTRY, executeCode } = require('./api/_compiler');
 const { getClientIp, checkRateLimit, applySecurityHeaders } = require('./api/_security');
+const interactiveManager = require('./api/_interactive_manager');
 
 const PORT = process.env.PORT || 3000;
 
@@ -79,7 +80,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. Execution Endpoint (POST /api/execute)
+  // 3. Execution Endpoint (POST /api/execute - Batch Judge0)
   if (req.method === 'POST' && pathname === '/api/execute') {
     const clientIp = getClientIp(req);
     const rateLimit = checkRateLimit(clientIp);
@@ -122,7 +123,76 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. Static File Server (Prefers dist/ for React build, falls back to root)
+  // 3.1 Live Interactive Execution Endpoints
+  // Start Session (POST /api/interactive/start)
+  if (req.method === 'POST' && pathname === '/api/interactive/start') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 512 * 1024) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Payload exceeds limit' }));
+        req.destroy();
+      }
+    });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const sessionRes = await interactiveManager.startSession(payload);
+        res.writeHead(sessionRes.success ? 200 : (sessionRes.status?.id === 6 ? 400 : 500), { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(sessionRes));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Subscribe to Live Output Stream (GET /api/interactive/stream)
+  if (req.method === 'GET' && pathname === '/api/interactive/stream') {
+    const sessionId = parsedUrl.query.sessionId;
+    interactiveManager.subscribeStream(sessionId, res);
+    return;
+  }
+
+  // Send Input to Running Process (POST /api/interactive/input)
+  if (req.method === 'POST' && pathname === '/api/interactive/input') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const inRes = interactiveManager.sendInput(payload.sessionId, payload.input !== undefined ? payload.input : '');
+        res.writeHead(inRes.success ? 200 : 400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(inRes));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Terminate Running Process (POST /api/interactive/stop)
+  if (req.method === 'POST' && pathname === '/api/interactive/stop') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const stopRes = interactiveManager.stopSession(payload.sessionId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(stopRes));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 4. Static File Server (Root first for live editing, fallback to dist)
   let reqPath = parsedUrl.pathname;
   if (reqPath === '/' || reqPath === '') {
     reqPath = '/index.html';
@@ -130,18 +200,16 @@ const server = http.createServer(async (req, res) => {
 
   const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
   
-  // Check dist first if it exists
-  const distPath = path.join(__dirname, 'dist', safePath);
   const rootPath = path.join(__dirname, safePath);
+  const distPath = path.join(__dirname, 'dist', safePath);
   
   let targetFile = null;
-  if (fs.existsSync(distPath) && fs.statSync(distPath).isFile()) {
-    targetFile = distPath;
-  } else if (fs.existsSync(rootPath) && fs.statSync(rootPath).isFile()) {
+  if (fs.existsSync(rootPath) && fs.statSync(rootPath).isFile()) {
     targetFile = rootPath;
-  } else if (fs.existsSync(path.join(__dirname, 'dist', 'index.html'))) {
-    // SPA fallback
-    targetFile = path.join(__dirname, 'dist', 'index.html');
+  } else if (fs.existsSync(distPath) && fs.statSync(distPath).isFile()) {
+    targetFile = distPath;
+  } else if (fs.existsSync(path.join(__dirname, 'index.html'))) {
+    targetFile = path.join(__dirname, 'index.html');
   }
 
   if (!targetFile) {
@@ -157,11 +225,15 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(targetFile).pipe(res);
 });
 
+// Attach Persistent Interactive WebSocket Server
+interactiveManager.attachWebSocketServer(server);
+
 server.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(`⚡ NRG ENGINE 2.0 — COMPILER BACKEND SERVER ONLINE`);
   console.log(`📡 URL: http://localhost:${PORT}`);
   console.log(`🔧 Execution Endpoint: http://localhost:${PORT}/api/execute`);
+  console.log(`⚡ Interactive WebSocket: ws://localhost:${PORT}/api/interactive/ws`);
   console.log(`🛡 Security: Hardened Sandbox + Rate Limiting Active`);
   console.log(`====================================================`);
 });

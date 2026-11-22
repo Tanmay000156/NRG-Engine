@@ -4474,6 +4474,14 @@
                 </svg>
               </button>
 
+              <!-- Live Process Stop Button -->
+              <button class="btn-terminal-clear" id="btnTerminalStop" title="Stop Running Program" style="display:none; color:#ef4444; border-color:rgba(239, 68, 68, 0.4); padding:0 8px; width:auto; gap:4px; font-size:11px; font-weight:700;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+                </svg>
+                <span>Stop</span>
+              </button>
+
               <button class="btn-terminal-clear" id="btnTerminalClear" title="Clear Terminal Log">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"></polyline>
@@ -4492,7 +4500,7 @@
             
             <!-- Interactive Command Line -->
             <div class="term-prompt-line">
-              <span class="term-prompt-prefix">nrg-engine $</span>
+              <span class="term-prompt-prefix" id="termPromptPrefix">nrg-engine $</span>
               <input type="text" class="term-prompt-input" id="termPromptInput" placeholder="Press 'Run Code' or type 'run'..." autocomplete="off" spellcheck="false">
               <span class="cursor-block"></span>
             </div>
@@ -7343,24 +7351,372 @@ echo "Hello, NRG Engine from PHP!\\n";
       showToast(`Navigated to Line ${line}, Column ${col}`);
     }
 
-    async function executeRealCode() {
+    // ==========================================================================
+    // NRG ENGINE REAL-TIME INTERACTIVE & BATCH EXECUTION ENGINE (MODE A & MODE B)
+    // ==========================================================================
+    let activeInteractiveSession = null;
+    window.activeInteractiveSession = null;
+    window.stopInteractiveExecution = stopInteractiveExecution;
+    
+    function stopInteractiveExecution() {
+      if (!activeInteractiveSession) return;
+      const sId = activeInteractiveSession.sessionId;
+      const ws = activeInteractiveSession.ws;
+      const es = activeInteractiveSession.eventSource;
+      if (ws) {
+        try { ws.send(JSON.stringify({ type: 'stop', sessionId: sId })); } catch(e) {}
+        try { ws.close(); } catch(e) {}
+      }
+      if (es) {
+        try { es.close(); } catch(e) {}
+      }
+      activeInteractiveSession = null;
+      window.activeInteractiveSession = null;
+    
+      fetch('/api/interactive/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sId })
+      }).catch(() => {});
+    
+      resetInteractiveUI('Terminated by user', 143);
+    }
+    
+    function resetInteractiveUI(statusDesc, exitCode) {
+      const btnActionRun = document.getElementById('btnActionRun');
+      const btnEditorRun = document.getElementById('btnEditorRun');
+      const btnTerminalStop = document.getElementById('btnTerminalStop');
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      const termPromptPrefix = document.getElementById('termPromptPrefix');
+      const termPromptInput = document.getElementById('termPromptInput');
+      const termBody = document.getElementById('termViewTerminal');
+    
+      if (btnActionRun) {
+        btnActionRun.querySelector('span').textContent = 'Run Code';
+        btnActionRun.classList.remove('btn-running-stop');
+        btnActionRun.style.opacity = '1';
+        btnActionRun.style.pointerEvents = 'auto';
+      }
+      if (btnEditorRun) {
+        btnEditorRun.classList.remove('btn-running-stop');
+        btnEditorRun.title = 'Run Code (Ctrl + Enter)';
+        btnEditorRun.style.opacity = '1';
+        btnEditorRun.style.pointerEvents = 'auto';
+      }
+      if (btnTerminalStop) {
+        btnTerminalStop.style.display = 'none';
+      }
+      if (termPromptPrefix) {
+        termPromptPrefix.textContent = 'nrg-engine $';
+        termPromptPrefix.style.color = '#16a34a';
+      }
+      if (termPromptInput) {
+        termPromptInput.placeholder = "Press 'Run Code' or type 'run'...";
+        termPromptInput.disabled = false;
+      }
+      if (terminalStatusBadge && terminalStatusText) {
+        const isSuccess = exitCode === 0;
+        terminalStatusBadge.className = isSuccess ? 'terminal-status-badge success' : 'terminal-status-badge error';
+        terminalStatusText.textContent = isSuccess ? 'Exited (0)' : (statusDesc || 'Exited (' + exitCode + ')');
+      }
+      if (termBody) {
+        termBody.scrollTop = termBody.scrollHeight;
+      }
+    }
+    
+    async function startInteractiveExecution(lang, code) {
+      const btnActionRun = document.getElementById('btnActionRun');
+      const btnEditorRun = document.getElementById('btnEditorRun');
+      const btnTerminalStop = document.getElementById('btnTerminalStop');
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      const termPromptPrefix = document.getElementById('termPromptPrefix');
+      const termPromptInput = document.getElementById('termPromptInput');
+      const termLogStream = document.getElementById('termLogStream');
+      const termBody = document.getElementById('termViewTerminal');
+      const stdoutView = document.getElementById('stdoutView');
+    
+      switchTerminalTab('terminal');
+    
+      const langInfo = LANGUAGES[lang] || { name: 'C', compiler: 'GCC', file: 'main.c' };
+      termLogStream.innerHTML += 
+        '<div class="term-run-entry" style="margin-top:8px;">' +
+          '<div class="term-meta-line" style="color:var(--primary-blue); font-weight:700;">' +
+            '🚀 [' + new Date().toLocaleTimeString() + '] Starting interactive session for ' + langInfo.file + ' (' + langInfo.compiler + ')...' +
+          '</div>' +
+          '<div class="term-meta-line" style="color:#10b981; font-weight:600; font-size:11px;">' +
+            '✔ Mode B: Live Interactive Terminal (Persistent Process via WebSocket)' +
+          '</div>' +
+        '</div>';
+      termBody.scrollTop = termBody.scrollHeight;
+    
+      terminalStatusBadge.className = 'terminal-status-badge running';
+      terminalStatusText.textContent = 'Connecting...';
+    
+      return new Promise((resolve) => {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host || 'localhost:3000';
+        const wsUrl = `${wsProtocol}//${wsHost}/api/interactive/ws`;
+    
+        let ws;
+        try {
+          ws = new WebSocket(wsUrl);
+        } catch (wsErr) {
+          handleInteractiveError('Cannot initialize WebSocket: ' + wsErr.message);
+          return resolve(false);
+        }
+    
+        let connectionTimeout = setTimeout(() => {
+          if (!ws || ws.readyState !== 1) {
+            try { ws.close(); } catch(e) {}
+            handleInteractiveError('Connection to interactive execution worker timed out.');
+            resolve(false);
+          }
+        }, 5000);
+    
+        function handleInteractiveError(errMsg) {
+          clearTimeout(connectionTimeout);
+          terminalStatusBadge.className = 'terminal-status-badge error';
+          terminalStatusText.textContent = 'Worker Offline';
+    
+          termLogStream.innerHTML += 
+            '<div class="term-error-line">' +
+              '<span>❌</span> <span>Interactive Execution Worker Unavailable</span>' +
+            '</div>' +
+            '<div class="term-stderr-block">' +
+              'Cannot connect to the interactive execution worker at ' + wsUrl + '.\n\n' +
+              '• Interactive execution requires the local persistent worker service (\'node server.js\').\n' +
+              '• When running in a serverless environment (such as Vercel), persistent child processes and WebSockets are not supported.\n' +
+              '• To run with pre-defined input: Enter your values into the \'Input\' tab and click Run (Mode A: Batch Input).\n' +
+            '</div>' +
+            '<div class="term-divider">------------------------------------</div>' +
+            '<div class="term-meta-line" style="color:#ef4444; font-weight:600;">' +
+              'Interactive execution halted. Automatic execution with empty stdin was blocked.' +
+            '</div>';
+          if (stdoutView) stdoutView.textContent = '[Interactive Worker Offline]\n' + errMsg;
+          resetInteractiveUI('Worker Offline', 1);
+        }
+    
+        ws.onopen = () => {
+          clearTimeout(connectionTimeout);
+          terminalStatusText.textContent = 'Compiling...';
+          ws.send(JSON.stringify({
+            type: 'start',
+            language: lang,
+            source_code: code
+          }));
+        };
+    
+        ws.onerror = (e) => {
+          clearTimeout(connectionTimeout);
+          if (!activeInteractiveSession) {
+            handleInteractiveError('WebSocket connection error.');
+            resolve(false);
+          }
+        };
+    
+        ws.onclose = () => {
+          if (activeInteractiveSession) {
+            stopInteractiveExecution();
+          }
+        };
+    
+        ws.onmessage = (e) => {
+          try {
+            const event = JSON.parse(e.data);
+    
+            if (event.type === 'started') {
+              const sessionId = event.sessionId;
+              activeInteractiveSession = { sessionId, ws, startTime: Date.now() };
+              window.activeInteractiveSession = activeInteractiveSession;
+    
+              terminalStatusBadge.className = 'terminal-status-badge running';
+              terminalStatusText.textContent = 'Running (Interactive)';
+    
+              if (btnActionRun) {
+                btnActionRun.querySelector('span').textContent = 'Stop';
+                btnActionRun.classList.add('btn-running-stop');
+                btnActionRun.style.opacity = '1';
+                btnActionRun.style.pointerEvents = 'auto';
+              }
+              if (btnEditorRun) {
+                btnEditorRun.classList.add('btn-running-stop');
+                btnEditorRun.title = 'Stop Execution';
+                btnEditorRun.style.opacity = '1';
+                btnEditorRun.style.pointerEvents = 'auto';
+              }
+              if (btnTerminalStop) {
+                btnTerminalStop.style.display = 'inline-flex';
+              }
+              if (termPromptPrefix) {
+                termPromptPrefix.textContent = 'stdin >';
+                termPromptPrefix.style.color = 'var(--primary-blue)';
+              }
+              if (termPromptInput) {
+                termPromptInput.placeholder = 'Type input for program and press Enter...';
+                termPromptInput.disabled = false;
+                termPromptInput.focus();
+              }
+              resolve(true);
+    
+            } else if (event.type === 'stdout') {
+              const span = document.createElement('span');
+              span.className = 'term-stream-stdout';
+              span.textContent = event.data;
+              termLogStream.appendChild(span);
+              if (stdoutView) stdoutView.textContent += event.data;
+              termBody.scrollTop = termBody.scrollHeight;
+              if (termPromptInput) termPromptInput.focus();
+    
+            } else if (event.type === 'stderr') {
+              const span = document.createElement('span');
+              span.className = 'term-stream-stderr';
+              span.textContent = event.data;
+              termLogStream.appendChild(span);
+              termBody.scrollTop = termBody.scrollHeight;
+    
+            } else if (event.type === 'exit') {
+              try { ws.close(); } catch(err) {}
+              activeInteractiveSession = null;
+              window.activeInteractiveSession = null;
+    
+              resetInteractiveUI(event.code === 0 ? 'Accepted' : 'Process Exited', event.code);
+    
+              const summaryLine = document.createElement('div');
+              summaryLine.innerHTML = 
+                '<div class="term-divider">------------------------------------</div>' +
+                '<div class="term-meta-line" style="color:' + (event.code === 0 ? '#10b981' : '#ef4444') + '; font-weight:600;">' +
+                  (event.code === 0 ? '✔' : '✖') + ' Process completed in ' + (event.duration || '0.00') + 's (exit code: ' + event.code + ')' +
+                '</div>';
+              termLogStream.appendChild(summaryLine);
+              termBody.scrollTop = termBody.scrollHeight;
+    
+              localStorage.setItem('nrg_last_exec', JSON.stringify({
+                status: event.code === 0 ? 'Accepted' : 'Failed',
+                time: (event.duration || '0.04') + 's',
+                memory: '14MB',
+                timestamp: Date.now()
+              }));
+              trackWorkspaceActivity(event.code === 0 ? 'run' : 'error', 'Executed ' + langInfo.file + ' (' + (event.code === 0 ? 'Accepted' : 'Code ' + event.code) + ')');
+    
+            } else if (event.type === 'error') {
+              if (event.status && event.status.id === 6) {
+                terminalStatusBadge.className = 'terminal-status-badge error';
+                terminalStatusText.textContent = 'Compilation Failed';
+                const compileErr = event.compile_output || 'Compilation error';
+                termLogStream.innerHTML += 
+                  '<div class="term-error-line">' +
+                    '<span>❌</span> <span>Compilation failed (' + langInfo.compiler + ')</span>' +
+                  '</div>' +
+                  '<div class="term-stderr-block">' + renderAnsiTerminal(compileErr) + '</div>' +
+                  '<div class="term-divider">------------------------------------</div>' +
+                  '<div class="term-meta-line" style="color:#ef4444; font-weight:600;">Execution halted due to compilation errors.</div>';
+                if (stdoutView) stdoutView.textContent = '[Compilation Failed]\n\n' + compileErr;
+                resetInteractiveUI('Compilation Error', 1);
+                resolve(true);
+              } else {
+                handleInteractiveError(event.error || 'Execution start failed');
+                resolve(false);
+              }
+            }
+          } catch (err) {
+            console.error('WS message parsing error:', err);
+          }
+        };
+      });
+    }
+    
+    async function executeBatchJudge0(stdinValue) {
       const btnActionRun = document.getElementById('btnActionRun');
       const btnEditorRun = document.getElementById('btnEditorRun');
       const terminalStatusBadge = document.getElementById('terminalStatusBadge');
       const terminalStatusText = document.getElementById('terminalStatusText');
       const termLogStream = document.getElementById('termLogStream');
       const stdoutView = document.getElementById('stdoutView');
-      const stdinInput = document.getElementById('stdinInput');
-      const problemsTabCount = document.getElementById('problemsTabCount');
-      const problemsListContainer = document.getElementById('problemsListContainer');
       const termBody = document.getElementById('termViewTerminal');
-
+    
+      switchTerminalTab('terminal');
+    
+      const langInfo = LANGUAGES[currentLang] || { name: 'C', compiler: 'GCC', file: 'main.c' };
+      termLogStream.innerHTML += `
+        <div class="term-run-entry" style="margin-top:8px;">
+          <div class="term-meta-line" style="color:var(--primary-blue); font-weight:700;">
+            🚀 [${new Date().toLocaleTimeString()}] Submitting ${langInfo.file} to ${langInfo.compiler} (Mode A: Batch Input)...
+          </div>
+          ${stdinValue ? `<div class="term-meta-line" style="color:var(--text-muted); font-size:11px;">Predefined STDIN: "${escapeHtml(stdinValue.slice(0, 40))}${stdinValue.length > 40 ? '...' : ''}"</div>` : ''}
+        </div>
+      `;
+      termBody.scrollTop = termBody.scrollHeight;
+    
+      const apiUrl = (window.location.protocol.startsWith('http') ? window.location.origin : 'http://localhost:3000') + '/api/execute';
+    
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: currentLang,
+            source_code: currentCode,
+            stdin: stdinValue
+          })
+        });
+    
+        if (!response.ok) {
+          const errPayload = await response.json().catch(() => ({}));
+          throw new Error(errPayload.error || `HTTP ${response.status} from compiler backend`);
+        }
+    
+        const data = await response.json();
+        handleExecutionResult(data);
+    
+      } catch (err) {
+        console.error('Compiler backend request failed:', err);
+        terminalStatusBadge.className = 'terminal-status-badge error';
+        terminalStatusText.textContent = 'Connection Error';
+    
+        termLogStream.innerHTML += `
+          <div class="term-error-line">
+            <span>❌</span> <span>Backend Connection Error</span>
+          </div>
+          <div class="term-stderr-block">Failed to connect to NRG Engine Compiler Backend at ${apiUrl}.\nReason: ${err.message}\n\nPlease ensure the backend service is running ('node server.js').</div>
+          <div class="term-divider">------------------------------------</div>
+          <div class="term-meta-line" style="color:#ef4444; font-weight:600;">
+            Real execution requires the local backend service. Simulated output has been permanently disabled.
+          </div>
+        `;
+        stdoutView.textContent = `[Connection Error: Compiler Backend offline at ${apiUrl}]`;
+        showToast('Backend Offline: Run "node server.js"');
+      } finally {
+        if (btnActionRun) {
+          btnActionRun.querySelector('span').textContent = 'Run Code';
+          btnActionRun.style.opacity = '1';
+          btnActionRun.style.pointerEvents = 'auto';
+        }
+        if (btnEditorRun) {
+          btnEditorRun.style.opacity = '1';
+          btnEditorRun.style.pointerEvents = 'auto';
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+      }
+    }
+    
+    async function executeRealCode() {
+      const btnActionRun = document.getElementById('btnActionRun');
+      const btnEditorRun = document.getElementById('btnEditorRun');
+      const terminalStatusBadge = document.getElementById('terminalStatusBadge');
+      const terminalStatusText = document.getElementById('terminalStatusText');
+      const termLogStream = document.getElementById('termLogStream');
+      const stdinInput = document.getElementById('stdinInput');
+      const termBody = document.getElementById('termViewTerminal');
+    
       const stdinValue = stdinInput ? stdinInput.value : '';
-
+      const hasBatchInput = stdinValue && stdinValue.trim().length > 0;
+    
       // Update UI to running state
       terminalStatusBadge.className = 'terminal-status-badge running';
       terminalStatusText.textContent = 'Compiling...';
-
+    
       const originalActionText = btnActionRun.querySelector('span').textContent;
       btnActionRun.querySelector('span').textContent = 'Running...';
       btnActionRun.style.opacity = '0.7';
@@ -7369,7 +7725,7 @@ echo "Hello, NRG Engine from PHP!\\n";
         btnEditorRun.style.opacity = '0.7';
         btnEditorRun.style.pointerEvents = 'none';
       }
-
+    
       // Check if client-side JavaScript graphics (Canvas 2D / WebGL / Three.js / p5.js / D3.js)
       const isJsGraphics = currentLang === 'javascript' && (
         currentTerminalTab === 'graphics' ||
@@ -7379,7 +7735,7 @@ echo "Hello, NRG Engine from PHP!\\n";
         currentCode.includes('canvas') || currentCode.includes('ctx.') || currentCode.includes('gl.') ||
         /(?:^|\n)\s*(?:function\s+draw\s*\(|function\s+setup\s*\()/m.test(currentCode)
       );
-
+    
       if (isJsGraphics) {
         terminalStatusBadge.className = 'terminal-status-badge success';
         terminalStatusText.textContent = 'Graphics Active';
@@ -7407,69 +7763,23 @@ echo "Hello, NRG Engine from PHP!\\n";
         }
         return;
       }
-
-      // Switch to terminal tab for server compilation
-      switchTerminalTab('terminal');
-
-      const langInfo = LANGUAGES[currentLang] || { name: 'C', compiler: 'GCC', file: 'main.c' };
-      termLogStream.innerHTML += `
-        <div class="term-run-entry" style="margin-top:8px;">
-          <div class="term-meta-line" style="color:var(--primary-blue); font-weight:700;">
-            🚀 [${new Date().toLocaleTimeString()}] Submitting ${langInfo.file} to ${langInfo.compiler}...
-          </div>
-        </div>
-      `;
-      termBody.scrollTop = termBody.scrollHeight;
-
-      // Determine backend endpoint
-      const apiUrl = (window.location.protocol.startsWith('http') ? window.location.origin : 'http://localhost:3000') + '/api/execute';
-
-      try {
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language: currentLang,
-            source_code: currentCode,
-            stdin: stdinValue
-          })
-        });
-
-        if (!response.ok) {
-          const errPayload = await response.json().catch(() => ({}));
-          throw new Error(errPayload.error || `HTTP ${response.status} from compiler backend`);
-        }
-
-        const data = await response.json();
-        handleExecutionResult(data);
-
-      } catch (err) {
-        console.error('Compiler backend request failed:', err);
-        terminalStatusBadge.className = 'terminal-status-badge error';
-        terminalStatusText.textContent = 'Connection Error';
-
-        termLogStream.innerHTML += `
-          <div class="term-error-line">
-            <span>❌</span> <span>Backend Connection Error</span>
-          </div>
-          <div class="term-stderr-block">Failed to connect to NRG Engine Compiler Backend at ${apiUrl}.\nReason: ${err.message}\n\nPlease ensure the backend service is running ('node server.js').</div>
-          <div class="term-divider">------------------------------------</div>
-          <div class="term-meta-line" style="color:#ef4444; font-weight:600;">
-            Real execution requires the local backend service. Simulated output has been permanently disabled.
-          </div>
-        `;
-        stdoutView.textContent = `[Connection Error: Compiler Backend offline at ${apiUrl}]`;
-        showToast('Backend Offline: Run "node server.js"');
-      } finally {
-        btnActionRun.querySelector('span').textContent = originalActionText;
-        btnActionRun.style.opacity = '1';
-        btnActionRun.style.pointerEvents = 'auto';
-        if (btnEditorRun) {
-          btnEditorRun.style.opacity = '1';
-          btnEditorRun.style.pointerEvents = 'auto';
-        }
-        termBody.scrollTop = termBody.scrollHeight;
+    
+      // Check for visual graphics program (Turtle / Matplotlib)
+      const isGraphicsProgram = (currentLang === 'python' && (currentCode.includes('turtle.') || currentCode.includes('plt.') || currentCode.includes('matplotlib'))) ||
+                                (currentLang === 'c' && currentCode.includes('__NRG_CANVAS__'));
+    
+      // MODE SELECTION:
+      // If user provided input in the Input tab, OR if graphics program, OR if language not in interactive list:
+      // -> MODE A: BATCH EXECUTION (Judge0)
+      if (hasBatchInput || isGraphicsProgram || !(currentLang === 'c' || currentLang === 'cpp' || currentLang === 'python' || currentLang === 'javascript')) {
+        console.log('[NRG ENGINE] Mode A selected: Batch execution via Judge0 pipeline (stdin length: ' + stdinValue.length + ')');
+        await executeBatchJudge0(stdinValue);
+        return;
       }
+    
+      // -> MODE B: REAL-TIME INTERACTIVE TERMINAL (Persistent Subprocess via WebSocket)
+      console.log('[NRG ENGINE] Mode B selected: Interactive execution via persistent execution worker');
+      await startInteractiveExecution(currentLang, currentCode);
     }
 
     function handleExecutionResult(data) {
@@ -9058,11 +9368,48 @@ public class Main {
       if (stdoutView) stdoutView.textContent = '[Terminal cleared]';
       showToast('Terminal cleared');
     }
+    const btnTermStopEl = document.getElementById('btnTerminalStop');
+    if (btnTermStopEl) {
+      btnTermStopEl.addEventListener('click', stopInteractiveExecution);
+    }
     document.getElementById('btnTerminalClear').addEventListener('click', clearTerminal);
 
     // Interactive Terminal Command Prompt
     termPromptInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        if (activeInteractiveSession) {
+          const inputVal = termPromptInput.value;
+          termPromptInput.value = '';
+
+          // Display submitted input inline with program output
+          const termLogStream = document.getElementById('termLogStream');
+          const echoLine = document.createElement('div');
+          echoLine.className = 'term-stdin-line';
+          echoLine.innerHTML = '<span style="color:var(--text-muted);">&gt;</span> <span style="color:var(--primary-blue); font-weight:700;">' + escapeHtml(inputVal) + '</span>';
+          termLogStream.appendChild(echoLine);
+
+          const termBody = document.getElementById('termViewTerminal');
+          if (termBody) termBody.scrollTop = termBody.scrollHeight;
+
+          // Send to running process via WebSocket (or HTTP fallback)
+          if (activeInteractiveSession.ws && activeInteractiveSession.ws.readyState === 1 /* OPEN */) {
+            activeInteractiveSession.ws.send(JSON.stringify({
+              type: 'stdin',
+              sessionId: activeInteractiveSession.sessionId,
+              data: inputVal
+            }));
+          } else {
+            fetch('/api/interactive/input', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sessionId: activeInteractiveSession.sessionId,
+                input: inputVal
+              })
+            }).catch(err => console.error('Failed to send input:', err));
+          }
+          return;
+        }
         const cmd = termPromptInput.value.trim().toLowerCase();
         termPromptInput.value = '';
 
