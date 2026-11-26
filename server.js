@@ -1,14 +1,15 @@
 /**
- * NRG ENGINE 2.0 — COMPILER BACKEND SERVER (LOCAL DEV & PROD)
- * Multi-Language Execution Service powered by Judge0 CE Sandbox
- * Hardened with Rate Limiting, CORS Validation & React Dist Serving
+ * NRG ENGINE — COMPILER BACKEND SERVER (LOCAL DEV & PROD)
+ * Multi-Language Execution Service powered by Judge0 CE Sandbox & Local Runtimes
+ * Hardened with Rate Limiting, CORS Validation & Unified Glassmorphic UI Serving
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
 const { LANGUAGE_REGISTRY, executeCode } = require('./api/_compiler');
+const { DEFAULT_SETTINGS, ACCOUNT_ROLES, FONT_FAMILY_OPTIONS, PREDICTOR_LIMITS } = require('./api/_config');
+const { predictCode } = require('./api/_predictor');
 const { getClientIp, checkRateLimit, applySecurityHeaders } = require('./api/_security');
 const interactiveManager = require('./api/_interactive_manager');
 
@@ -42,7 +43,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const parsedUrl = url.parse(req.url, true);
+  const parsedUrl = new URL(req.url, 'http://localhost');
   const pathname = parsedUrl.pathname;
 
   // 1. Health Endpoint
@@ -50,11 +51,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'online',
-      service: 'NRG Engine 2.0 Compiler Backend',
+      service: 'NRG Engine Compiler Backend',
       backend: 'Judge0 CE',
-      version: '2.0.0',
+      version: '1.0.0',
       supported_languages: Object.keys(LANGUAGE_REGISTRY),
-      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics', 'universal_graphics_engine', 'rate_limiting', 'sandboxed_execution']
+      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'ai_autocomplete', 'python_turtle_graphics', 'universal_graphics_engine', 'rate_limiting', 'sandboxed_execution']
     }));
     return;
   }
@@ -63,7 +64,16 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/git-branch') {
     const { execSync } = require('child_process');
     try {
-      const branch = execSync('git rev-parse --abbrev-ref HEAD', { timeout: 1000, cwd: __dirname }).toString().trim();
+      if (!fs.existsSync(path.join(__dirname, '.git'))) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ available: false, branch: 'main' }));
+        return;
+      }
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+        timeout: 1000,
+        cwd: __dirname,
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).toString().trim();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ available: true, branch }));
     } catch (e) {
@@ -77,6 +87,51 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/languages') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(LANGUAGE_REGISTRY));
+    return;
+  }
+
+  // 2.6 Centralized Configuration Endpoint
+  if (req.method === 'GET' && pathname === '/api/config') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      defaults: DEFAULT_SETTINGS,
+      accountRoles: ACCOUNT_ROLES,
+      fontFamilies: FONT_FAMILY_OPTIONS,
+      predictorLimits: PREDICTOR_LIMITS
+    }));
+    return;
+  }
+
+  // 2.7 Context-Aware AI Code Prediction Endpoint
+  if (req.method === 'POST' && pathname === '/api/predict') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 128 * 1024) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, suggestion: '', error: 'Context payload exceeds limit.' }));
+        req.destroy();
+      }
+    });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const result = await predictCode({
+          language: payload.language,
+          prefix: payload.prefix,
+          suffix: payload.suffix,
+          tabSize: payload.tabSize,
+          trigger: payload.trigger,
+          aiConfig: payload.aiConfig
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, ...result }));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, suggestion: '', source: 'error', error: err.message }));
+      }
+    });
     return;
   }
 
@@ -151,7 +206,7 @@ const server = http.createServer(async (req, res) => {
 
   // Subscribe to Live Output Stream (GET /api/interactive/stream)
   if (req.method === 'GET' && pathname === '/api/interactive/stream') {
-    const sessionId = parsedUrl.query.sessionId;
+    const sessionId = parsedUrl.searchParams.get('sessionId');
     interactiveManager.subscribeStream(sessionId, res);
     return;
   }

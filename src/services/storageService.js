@@ -3,10 +3,13 @@
  * Multi-layer persistence using IndexedDB with LocalStorage fallback & zero-data-loss migration.
  */
 
+import { DEFAULT_SETTINGS } from '../constants/config.js';
+
 const DB_NAME = 'nrg_engine_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_PROJECTS = 'projects';
 const STORE_SNIPPETS = 'snippets';
+const STORE_PREFERENCES = 'preferences';
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -23,10 +26,52 @@ function openDB() {
       if (!db.objectStoreNames.contains(STORE_SNIPPETS)) {
         db.createObjectStore(STORE_SNIPPETS, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(STORE_PREFERENCES)) {
+        db.createObjectStore(STORE_PREFERENCES, { keyPath: 'key' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => resolve(null); // Fallback to localStorage on error
   });
+}
+
+export async function loadSettings() {
+  let stored = null;
+  try {
+    const raw = localStorage.getItem('nrg_app_settings');
+    if (raw) stored = JSON.parse(raw);
+  } catch (e) {}
+
+  if (!stored) {
+    try {
+      const db = await openDB();
+      if (db && db.objectStoreNames.contains(STORE_PREFERENCES)) {
+        const tx = db.transaction(STORE_PREFERENCES, 'readonly');
+        const req = tx.objectStore(STORE_PREFERENCES).get('app_settings');
+        stored = await new Promise(res => {
+          req.onsuccess = () => res(req.result?.value || null);
+          req.onerror = () => res(null);
+        });
+      }
+    } catch (e) {}
+  }
+
+  return { ...DEFAULT_SETTINGS, ...(stored || {}) };
+}
+
+export async function saveSettings(settings) {
+  const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  try {
+    localStorage.setItem('nrg_app_settings', JSON.stringify(merged));
+  } catch (e) {}
+  try {
+    const db = await openDB();
+    if (db && db.objectStoreNames.contains(STORE_PREFERENCES)) {
+      const tx = db.transaction(STORE_PREFERENCES, 'readwrite');
+      tx.objectStore(STORE_PREFERENCES).put({ key: 'app_settings', value: merged });
+    }
+  } catch (e) {}
+  return merged;
 }
 
 // Initial seed projects

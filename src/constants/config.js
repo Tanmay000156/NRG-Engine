@@ -1,0 +1,26 @@
+// NRG ENGINE — Centralized Client Defaults Mirror
+export const DEFAULT_SETTINGS = {
+  displayName: '',
+  username: '',
+  roleTitle: 'Developer',
+  bio: '',
+  avatarDataUrl: '',
+  avatarAccent: '#0066ff',
+  theme: 'crystal-obsidian',
+  fontSize: 14.5,
+  fontFamily: "'Consolas', 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace",
+  tabSize: 4,
+  wordWrap: false,
+  lineNumbers: true,
+  minimap: false,
+  autoIndent: true,
+  autoSave: true,
+  autoSaveDelayMs: 2500,
+  aiAutocomplete: true,
+  aiPredictionDelayMs: 320,
+  aiProvider: 'auto',
+  aiEndpoint: '',
+  aiModel: '',
+  aiApiKey: '',
+  soundEffects: true
+};

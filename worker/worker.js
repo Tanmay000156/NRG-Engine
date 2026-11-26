@@ -5,12 +5,35 @@
  */
 
 const http = require('http');
-const { spawn, exec, execSync } = require('child_process');
+const { spawn, exec, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const url = require('url');
 const { WebSocketServer } = require('ws');
+
+let cppCompat = null;
+try { cppCompat = require('../api/_cpp_compat'); } catch (_) {}
+let localRunner = null;
+try { localRunner = require('../api/_local_runner'); } catch (_) {}
+
+const COMPILE_TIMEOUT_MS = cppCompat ? cppCompat.COMPILE_TIMEOUT_MS : 10000;
+const MAX_EXECUTION_TIMEOUT_MS = cppCompat ? cppCompat.MAX_EXECUTION_TIMEOUT_MS : 30000;
+const INACTIVITY_TIMEOUT_MS = cppCompat ? cppCompat.INACTIVITY_TIMEOUT_MS : 30000;
+
+function resolvePythonBin() {
+  if (localRunner && typeof localRunner.resolvePythonExecutable === 'function') {
+    const p = localRunner.resolvePythonExecutable();
+    if (p) return p;
+  }
+  const candidates = process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python'];
+  for (const cmd of candidates) {
+    try {
+      const v = execFileSync(cmd, ['--version'], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
+      if (/Python\s+3\./i.test(v)) return cmd;
+    } catch (_) {}
+  }
+  return 'python';
+}
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 const AUTH_TOKEN = process.env.WORKER_AUTH_TOKEN || null;
@@ -110,9 +133,17 @@ function broadcast(sessionId, eventObj) {
 /**
  * Start a new persistent execution session
  */
-async function startSession({ language, source_code }) {
+async function startSession({ language, source_code, code }) {
+  const rawSource = typeof source_code === 'string' ? source_code : code;
+  if (typeof rawSource !== 'string') {
+    return { success: false, error: 'Missing or invalid source_code payload.' };
+  }
+  if (rawSource.length > 262144) {
+    return { success: false, status: { id: 14, description: 'Payload Too Large' }, error: 'Source code exceeds 256 KB limit.' };
+  }
+
   const sessionId = 'nrg_sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const lang = (language || 'c').toLowerCase();
+  const lang = (language || 'c').toLowerCase().trim();
   const sessionDir = path.join(BASE_SESSIONS_DIR, sessionId);
 
   try {
@@ -137,11 +168,11 @@ async function startSession({ language, source_code }) {
   activeSessions.set(sessionId, session);
   console.log(`[WORKER] Starting session ${sessionId} (${lang}). Total active: ${activeSessions.size}`);
 
-  // Overall execution timeout (max 120 seconds)
+  // Overall execution timeout (max 30 seconds)
   session.timeoutTimer = setTimeout(() => {
     broadcast(sessionId, {
       type: 'stderr',
-      data: '\n[NRG Worker] Execution time limit exceeded (120s).\n'
+      data: '\n[NRG Worker] Execution time limit exceeded (30s).\n'
     });
     broadcast(sessionId, {
       type: 'exit',
@@ -149,15 +180,15 @@ async function startSession({ language, source_code }) {
       status: 'Time Limit Exceeded'
     });
     cleanupSession(sessionId);
-  }, 120000);
+  }, MAX_EXECUTION_TIMEOUT_MS);
 
-  // Inactivity timeout (waiting for user stdin for 60s)
+  // Inactivity timeout (waiting for user stdin for 30s)
   function touchInactivity() {
     if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
     session.inactivityTimer = setTimeout(() => {
       broadcast(sessionId, {
         type: 'stderr',
-        data: '\n[NRG Worker] Input timeout (60s inactivity).\n'
+        data: '\n[NRG Worker] Input timeout (30s inactivity).\n'
       });
       broadcast(sessionId, {
         type: 'exit',
@@ -165,7 +196,7 @@ async function startSession({ language, source_code }) {
         status: 'Inactivity Timeout'
       });
       cleanupSession(sessionId);
-    }, 60000);
+    }, INACTIVITY_TIMEOUT_MS);
   }
   touchInactivity();
 
@@ -174,30 +205,38 @@ async function startSession({ language, source_code }) {
       const isCpp = lang === 'cpp';
       const ext = isCpp ? '.cpp' : '.c';
       const compiler = isCpp ? 'g++' : 'gcc';
-      const srcFile = path.join(sessionDir, `main${ext}`);
+      const filename = `main${ext}`;
+      const srcFile = path.join(sessionDir, filename);
       const exeFile = path.join(sessionDir, process.platform === 'win32' ? 'app.exe' : 'app');
 
-      // Unbuffered constructor to eliminate output buffering for prompts (e.g. printf("Enter number: "))
-      let finalSource = source_code;
-      if (!source_code.includes('__nrg_unbuffer')) {
+      let finalSource = rawSource;
+      if (cppCompat && typeof cppCompat.injectInteractiveUnbuffer === 'function') {
+        finalSource = cppCompat.injectInteractiveUnbuffer(rawSource, isCpp, filename);
+      } else if (!rawSource.includes('__nrg_unbuffer')) {
         const hook = isCpp
-          ? `#include <iostream>\n#include <cstdio>\nstruct __NRG_Init { __NRG_Init() { std::setvbuf(stdout, NULL, _IONBF, 0); std::setvbuf(stderr, NULL, _IONBF, 0); std::ios_base::sync_with_stdio(false); } } __nrg_init;\n`
-          : `#include <stdio.h>\n__attribute__((constructor)) static void __nrg_unbuffer() { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }\n`;
-        finalSource = hook + source_code;
+          ? `#include <iostream>\n#include <cstdio>\nstruct __NRG_Init { __NRG_Init() { std::setvbuf(stdout, NULL, _IONBF, 0); std::setvbuf(stderr, NULL, _IONBF, 0); std::ios_base::sync_with_stdio(false); } } __nrg_init;\n#line 1 "${filename}"\n`
+          : `#include <stdio.h>\n__attribute__((constructor)) static void __nrg_unbuffer() { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }\n#line 1 "${filename}"\n`;
+        finalSource = hook + rawSource;
       }
 
       fs.writeFileSync(srcFile, finalSource, 'utf8');
 
-      // Compile source
+      const compileArgs = cppCompat && typeof cppCompat.buildCompileArgs === 'function'
+        ? cppCompat.buildCompileArgs(isCpp, srcFile, exeFile, '-O0')
+        : (isCpp ? ['-O0', '-std=c++17', srcFile, '-o', exeFile, '-lm'] : ['-O0', srcFile, '-o', exeFile, '-lm']);
+
+      // Compile source with strict 10s compile timeout
       try {
-        execSync(`${compiler} -O0 -o "${exeFile}" "${srcFile}"`, {
+        execFileSync(compiler, compileArgs, {
           encoding: 'utf8',
-          timeout: 15000,
+          timeout: COMPILE_TIMEOUT_MS,
           cwd: sessionDir,
           stdio: ['pipe', 'pipe', 'pipe']
         });
       } catch (compileErr) {
-        const compileOut = (compileErr.stderr || compileErr.stdout || compileErr.message || 'Compilation failed').toString();
+        const isTimedOut = compileErr.killed || compileErr.code === 'ETIMEDOUT';
+        const rawErr = (compileErr.stderr || compileErr.stdout || compileErr.message || 'Compilation failed').toString();
+        const compileOut = isTimedOut ? `Compilation timed out (10s limit exceeded).\n${rawErr}` : rawErr;
         cleanupSession(sessionId);
         return {
           success: false,
@@ -215,17 +254,23 @@ async function startSession({ language, source_code }) {
 
     } else if (lang === 'python') {
       const srcFile = path.join(sessionDir, 'main.py');
-      fs.writeFileSync(srcFile, source_code, 'utf8');
+      fs.writeFileSync(srcFile, rawSource, 'utf8');
 
-      // Python -u guarantees unbuffered stdin/stdout/stderr
-      session.child = spawn('python', ['-u', srcFile], {
+      // Python -u guarantees unbuffered stdin/stdout/stderr & headless matplotlib backend
+      session.child = spawn(resolvePythonBin(), ['-u', srcFile], {
         cwd: sessionDir,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          MPLBACKEND: 'Agg',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUNBUFFERED: '1'
+        }
       });
 
     } else if (lang === 'javascript') {
       const srcFile = path.join(sessionDir, 'main.js');
-      fs.writeFileSync(srcFile, source_code, 'utf8');
+      fs.writeFileSync(srcFile, rawSource, 'utf8');
 
       session.child = spawn('node', [srcFile], {
         cwd: sessionDir,
@@ -349,13 +394,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const parsed = url.parse(req.url, true);
+  const parsed = new URL(req.url, 'http://localhost');
   const pathname = parsed.pathname;
 
   // Optional Authentication Check
   if (AUTH_TOKEN) {
     const headerAuth = req.headers['authorization'];
-    const queryToken = parsed.query.token;
+    const queryToken = parsed.searchParams.get('token');
     const provided = (headerAuth && headerAuth.replace(/^Bearer\s+/i, '')) || queryToken;
     if (provided !== AUTH_TOKEN && pathname !== '/health' && pathname !== '/') {
       res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -468,13 +513,13 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-  const parsed = url.parse(request.url, true);
+  const parsed = new URL(request.url, 'http://localhost');
   const pathname = parsed.pathname;
 
   if (pathname === '/ws' || pathname === '/api/interactive/ws') {
     // Check optional token
     if (AUTH_TOKEN) {
-      const queryToken = parsed.query.token;
+      const queryToken = parsed.searchParams.get('token');
       if (queryToken !== AUTH_TOKEN) {
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
@@ -483,7 +528,7 @@ server.on('upgrade', (request, socket, head) => {
     }
 
     wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request, parsed.query);
+      wss.emit('connection', ws, request, Object.fromEntries(parsed.searchParams));
     });
   } else {
     socket.destroy();
@@ -508,7 +553,7 @@ wss.on('connection', (ws, request, query) => {
       if (msg.type === 'start') {
         const res = await startSession({
           language: msg.language,
-          source_code: msg.source_code
+          source_code: msg.source_code !== undefined ? msg.source_code : msg.code
         });
 
         if (res.success) {

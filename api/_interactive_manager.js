@@ -4,12 +4,20 @@
  * Supports: C (GCC), C++ (G++), Python 3 (-u unbuffered), JavaScript (Node.js)
  */
 
-const { spawn, exec, execSync } = require('child_process');
+const { spawn, exec, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const url = require('url');
 const { WebSocketServer } = require('ws');
+const {
+  COMPILE_TIMEOUT_MS,
+  MAX_EXECUTION_TIMEOUT_MS,
+  INACTIVITY_TIMEOUT_MS,
+  injectInteractiveUnbuffer,
+  buildCompileArgs
+} = require('./_cpp_compat');
+const { resolvePythonExecutable, hasLocalCommand } = require('./_local_runner');
+const { detectGraphics, prepareExecutionCode } = require('./_graphics_bridge');
 
 // Active sessions map: sessionId -> SessionState
 const activeSessions = new Map();
@@ -104,9 +112,25 @@ function broadcast(sessionId, eventObj) {
 /**
  * Start a new interactive execution session
  */
-async function startSession({ language, source_code }) {
+async function startSession({ language, source_code, code }) {
+  const rawSource = typeof source_code === 'string' ? source_code : code;
+  const lang = (language || 'c').toLowerCase().trim();
+
+  if (typeof rawSource !== 'string' || !rawSource.length && rawSource !== '') {
+    return {
+      success: false,
+      error: 'Missing or invalid source_code parameter.'
+    };
+  }
+  if (rawSource.length > 262144) {
+    return {
+      success: false,
+      status: { id: 14, description: 'Payload Too Large' },
+      error: 'Source code exceeds maximum permitted payload limit (256 KB).'
+    };
+  }
+
   const sessionId = 'nrg_sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const lang = (language || 'c').toLowerCase();
 
   const session = {
     id: sessionId,
@@ -124,11 +148,11 @@ async function startSession({ language, source_code }) {
 
   activeSessions.set(sessionId, session);
 
-  // Set max overall execution timeout: 120s
+  // Set max overall execution timeout: 30s
   session.timeoutTimer = setTimeout(() => {
     broadcast(sessionId, {
       type: 'stderr',
-      data: '\n[NRG Engine] Execution timed out after 120 seconds.\n'
+      data: '\n[NRG Engine] Execution timed out after 30 seconds maximum execution limit.\n'
     });
     broadcast(sessionId, {
       type: 'exit',
@@ -136,7 +160,7 @@ async function startSession({ language, source_code }) {
       status: 'Time Limit Exceeded'
     });
     cleanupSession(sessionId);
-  }, 120000);
+  }, MAX_EXECUTION_TIMEOUT_MS);
 
   // Reset inactivity timer (waiting for input)
   function touchInactivity() {
@@ -144,7 +168,7 @@ async function startSession({ language, source_code }) {
     session.inactivityTimer = setTimeout(() => {
       broadcast(sessionId, {
         type: 'stderr',
-        data: '\n[NRG Engine] Terminated due to 60s input inactivity.\n'
+        data: '\n[NRG Engine] Terminated due to 30s input inactivity.\n'
       });
       broadcast(sessionId, {
         type: 'exit',
@@ -152,7 +176,7 @@ async function startSession({ language, source_code }) {
         status: 'Inactivity Timeout'
       });
       cleanupSession(sessionId);
-    }, 60000);
+    }, INACTIVITY_TIMEOUT_MS);
   }
   touchInactivity();
 
@@ -162,37 +186,49 @@ async function startSession({ language, source_code }) {
       const isCpp = lang === 'cpp';
       const ext = isCpp ? '.cpp' : '.c';
       const compiler = isCpp ? 'g++' : 'gcc';
+      if (!hasLocalCommand(compiler)) {
+        cleanupSession(sessionId);
+        return {
+          success: false,
+          error: `Compiler '${compiler}' is not available on this host.`
+        };
+      }
+      const filename = isCpp ? 'main.cpp' : 'main.c';
       const srcPath = path.join(TEMP_DIR, `${sessionId}${ext}`);
       const exeExt = process.platform === 'win32' ? '.exe' : '';
       const exePath = path.join(TEMP_DIR, `${sessionId}${exeExt}`);
       session.files.push(srcPath, exePath);
 
-      // Inject unbuffered I/O hook to ensure printf() flushes immediately without fflush
-      let finalCode = source_code;
-      if (!source_code.includes('__nrg_unbuffer')) {
-        const hook = isCpp
-          ? `#include <iostream>\n#include <cstdio>\nstruct __NRG_Init { __NRG_Init() { std::setvbuf(stdout, NULL, _IONBF, 0); std::setvbuf(stderr, NULL, _IONBF, 0); std::ios_base::sync_with_stdio(false); } } __nrg_init;\n`
-          : `#include <stdio.h>\n__attribute__((constructor)) static void __nrg_unbuffer() { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }\n`;
-        finalCode = hook + source_code;
-      }
-
+      // Apply portable <conio.h> compat + unbuffered stdio hook preserving line numbers
+      const finalCode = injectInteractiveUnbuffer(rawSource, isCpp, filename);
       fs.writeFileSync(srcPath, finalCode, 'utf8');
 
-      // Compile synchronously
+      // Compile synchronously with strict 10s compilation timeout & -lm / -std=c++17
       try {
-        execSync(`${compiler} -O0 -o "${exePath}" "${srcPath}"`, {
+        execFileSync(compiler, buildCompileArgs(isCpp, srcPath, exePath, '-O0'), {
           encoding: 'utf8',
-          timeout: 15000,
+          cwd: TEMP_DIR,
+          timeout: COMPILE_TIMEOUT_MS,
           stdio: ['pipe', 'pipe', 'pipe']
         });
       } catch (compileErr) {
-        const compileOut = (compileErr.stderr || compileErr.stdout || compileErr.message || 'Compilation failed').toString();
+        const isTimedOut = compileErr.killed || compileErr.code === 'ETIMEDOUT';
+        const rawErr = (compileErr.stderr || compileErr.stdout || compileErr.message || 'Compilation failed').toString();
+        const compileOut = isTimedOut
+          ? `Compilation timed out (10s limit exceeded).\n${rawErr}`
+          : rawErr;
+        let problems = [];
+        try {
+          const { parseDiagnostics } = require('./_compiler');
+          problems = parseDiagnostics(compileOut, '', lang);
+        } catch (_) {}
         cleanupSession(sessionId);
         return {
           success: false,
           sessionId,
           status: { id: 6, description: 'Compilation Error' },
-          compile_output: compileOut
+          compile_output: compileOut,
+          problems
         };
       }
 
@@ -204,21 +240,37 @@ async function startSession({ language, source_code }) {
       session.child = child;
 
     } else if (lang === 'python') {
+      const pyExe = resolvePythonExecutable();
+      if (!pyExe) {
+        cleanupSession(sessionId);
+        return {
+          success: false,
+          error: 'Python 3 interpreter was not found on this host.'
+        };
+      }
       const srcPath = path.join(TEMP_DIR, `${sessionId}.py`);
       session.files.push(srcPath);
-      fs.writeFileSync(srcPath, source_code, 'utf8');
+      const gfx = detectGraphics('python', rawSource);
+      const preparedPy = gfx.isGraphics ? prepareExecutionCode('python', rawSource).code : rawSource;
+      fs.writeFileSync(srcPath, preparedPy, 'utf8');
 
-      // Spawn python with -u (unbuffered binary stdout and stderr)
-      const child = spawn('python', ['-u', srcPath], {
+      // Spawn python with -u (unbuffered) and headless Matplotlib backend
+      const child = spawn(pyExe, ['-u', srcPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: TEMP_DIR
+        cwd: TEMP_DIR,
+        env: {
+          ...process.env,
+          MPLBACKEND: 'Agg',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUNBUFFERED: '1'
+        }
       });
       session.child = child;
 
     } else if (lang === 'javascript') {
       const srcPath = path.join(TEMP_DIR, `${sessionId}.js`);
       session.files.push(srcPath);
-      fs.writeFileSync(srcPath, source_code, 'utf8');
+      fs.writeFileSync(srcPath, rawSource, 'utf8');
 
       const child = spawn('node', [srcPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -338,7 +390,8 @@ function sendInput(sessionId, input) {
   }
 
   try {
-    const formattedInput = input.endsWith('\n') ? input : (input + '\n');
+    const inputStr = typeof input === 'string' ? input : String(input ?? '');
+    const formattedInput = inputStr.endsWith('\n') ? inputStr : (inputStr + '\n');
     console.log('[MANAGER SENDING INPUT TO CHILD]:', sessionId, JSON.stringify(formattedInput));
     session.child.stdin.write(formattedInput);
     
@@ -388,10 +441,10 @@ function attachWebSocketServer(server) {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (request, socket, head) => {
-    const parsed = url.parse(request.url, true);
+    const parsed = new URL(request.url, 'http://localhost');
     if (parsed.pathname === '/api/interactive/ws' || parsed.pathname === '/ws') {
       wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request, parsed.query);
+        wss.emit('connection', ws, request, Object.fromEntries(parsed.searchParams));
       });
     }
   });
@@ -412,7 +465,7 @@ function attachWebSocketServer(server) {
         if (msg.type === 'start') {
           const res = await startSession({
             language: msg.language,
-            source_code: msg.source_code
+            source_code: msg.source_code !== undefined ? msg.source_code : msg.code
           });
           if (res.success) {
             currentSessionId = res.sessionId;
@@ -426,6 +479,7 @@ function attachWebSocketServer(server) {
               type: 'error',
               status: res.status,
               compile_output: res.compile_output,
+              problems: res.problems || [],
               error: res.error || 'Execution start failed'
             }));
             ws.send(JSON.stringify({ type: 'exit', code: 1 }));

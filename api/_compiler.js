@@ -4,9 +4,18 @@
  * Powered by Judge0 CE Sandbox with Python Turtle Graphics Engine Bridge.
  */
 
-const url = require('url');
 const { generatePythonTurtleRunner } = require('./_turtle_bridge');
 const { detectGraphics, prepareExecutionCode, extractGraphicsOutput } = require('./_graphics_bridge');
+const {
+  COMPILE_TIMEOUT_MS,
+  MAX_EXECUTION_TIMEOUT_MS,
+  preprocessCppCompat
+} = require('./_cpp_compat');
+const {
+  getScientificModulesUsed,
+  hasLocalPythonModules,
+  executeLocal
+} = require('./_local_runner');
 
 const JUDGE0_API_URL = process.env.JUDGE0_API_URL || 'https://ce.judge0.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || ''; // Optional RapidAPI Key
@@ -238,37 +247,36 @@ async function submitToJudge0(languageId, sourceCode, stdin) {
   };
   if (JUDGE0_API_KEY) {
     headers['X-RapidAPI-Key'] = JUDGE0_API_KEY;
-    try {
-      headers['X-RapidAPI-Host'] = new URL(JUDGE0_API_URL).host;
-    } catch (e) {
-      headers['X-RapidAPI-Host'] = url.parse(JUDGE0_API_URL).host;
-    }
+    headers['X-RapidAPI-Host'] = new URL(JUDGE0_API_URL).host;
   }
 
   const payload = {
     language_id: languageId,
     source_code: b64encode(sourceCode),
     stdin: b64encode(stdin || ''),
-    cpu_time_limit: 5.0,     // 5 seconds CPU time limit
-    cpu_extra_time: 1.0,
-    wall_time_limit: 10.0,   // 10 seconds Wall time limit
+    cpu_time_limit: 15.0,  // 15 seconds CPU time limit
+    cpu_extra_time: 5.0,
+    wall_time_limit: 30.0, // 30 seconds maximum overall execution timeout
     memory_limit: 128000,    // 128 MB RAM
     max_file_size: 1024      // 1 MB max file
   };
 
   // Compiler & Linker Configuration
-  // Link libm for GCC C (IDs 103, 50, 48, 49) so math functions (sin, cos, sqrt, pow, atan2) link cleanly
+  // Link libm for GCC C (IDs 103, 50, 48, 49) so math functions link cleanly
+  // Use -O1 for C++ to keep compilation reliably under 10s even with heavy headers
   if (languageId === 103 || languageId === 50 || languageId === 48 || languageId === 49) {
     payload.compiler_options = "-lm";
   } else if (languageId === 105 || languageId === 54 || languageId === 53 || languageId === 52) {
-    payload.compiler_options = "-std=c++17 -O2 -lm";
+    payload.compiler_options = "-std=c++17 -O1 -lm";
   }
 
+  const overallStart = Date.now();
   const endpoint = `${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=true`;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(Math.min(25000, MAX_EXECUTION_TIMEOUT_MS))
   });
 
   if (!response.ok) {
@@ -278,27 +286,34 @@ async function submitToJudge0(languageId, sourceCode, stdin) {
 
   let result = await response.json();
 
-  // If status is queued or processing (id <= 2), poll until resolved or timeout
+  // If status is queued or processing (id <= 2), poll until resolved or 30s overall timeout
   if (result.status && result.status.id <= 2 && result.token) {
-    const startTime = Date.now();
-    while (result.status && result.status.id <= 2 && (Date.now() - startTime) < 12000) {
-      await new Promise(r => setTimeout(r, 600));
+    while (result.status && result.status.id <= 2 && (Date.now() - overallStart) < MAX_EXECUTION_TIMEOUT_MS) {
+      await new Promise(r => setTimeout(r, 400));
+      const remainingMs = MAX_EXECUTION_TIMEOUT_MS - (Date.now() - overallStart);
+      if (remainingMs <= 0) break;
       const pollEndpoint = `${JUDGE0_API_URL}/submissions/${result.token}?base64_encoded=true`;
-      const pollRes = await fetch(pollEndpoint, { headers });
+      const pollRes = await fetch(pollEndpoint, {
+        headers,
+        signal: AbortSignal.timeout(Math.min(10000, remainingMs))
+      });
       if (pollRes.ok) {
         result = await pollRes.json();
       }
+    }
+    if (result.status && result.status.id <= 2) {
+      result.status = { id: 5, description: 'Time Limit Exceeded' };
+      result.message = b64encode('Execution timed out after 30 seconds maximum overall execution timeout.');
     }
   }
 
   return result;
 }
 
-// Security Hardening: Arbitrary local server code execution removed per NRG Engine 2.0 directive.
-// All user programs run exclusively within isolated remote sandbox containers.
-
 // Master execution processor
-async function executeCode({ language, source_code, stdin }) {
+async function executeCode(payloadArg) {
+  const { language, source_code, code, stdin } = payloadArg || {};
+  const rawSource = typeof source_code === 'string' ? source_code : code;
   const langKey = (language || '').toLowerCase().trim();
   const langData = LANGUAGE_REGISTRY[langKey];
 
@@ -312,13 +327,8 @@ async function executeCode({ language, source_code, stdin }) {
     };
   }
 
-  // Universal Graphics Bridge Preparation
-  const graphicsDetection = detectGraphics(langKey, source_code);
-  const prepared = prepareExecutionCode(langKey, source_code);
-  let codeToExecute = prepared.code;
-
   // Input payload validation & limits (Security Hardening)
-  if (typeof source_code !== 'string' || source_code.length > 262144) {
+  if (typeof rawSource !== 'string' || rawSource.length > 262144) {
     return {
       status: 400,
       data: {
@@ -340,28 +350,66 @@ async function executeCode({ language, source_code, stdin }) {
     };
   }
 
-  let judge0Result;
-  try {
-    judge0Result = await submitToJudge0(langData.id, codeToExecute, stdin || '');
-  } catch (apiErr) {
-    // Attempt secondary fallback compiler ID on Judge0 if available
-    if (langData.fallbackId && langData.fallbackId !== langData.id) {
+  // Universal Graphics Bridge Preparation & C/C++ <conio.h> Portability Preprocessing
+  const graphicsDetection = detectGraphics(langKey, rawSource);
+  const prepared = prepareExecutionCode(langKey, rawSource);
+  let codeToExecute = prepared.code;
+  if (langKey === 'c' || langKey === 'cpp') {
+    codeToExecute = preprocessCppCompat(codeToExecute, langKey, langData.file);
+  }
+
+  let judge0Result = null;
+  let isLocalResult = false;
+  let executionModeLabel = 'Judge0 Isolated Sandbox';
+
+  // Route Python scripts using scientific/third-party libraries (matplotlib, numpy, pandas, etc.)
+  // to local Python sandbox when those libraries are installed locally, since Judge0 CE omits them.
+  const sciModules = langKey === 'python' ? getScientificModulesUsed(rawSource) : [];
+  if (langKey === 'python' && (process.env.NRG_EXECUTION_MODE === 'local' || (sciModules.length > 0 && hasLocalPythonModules(sciModules)))) {
+    const localRes = await executeLocal({ language: langKey, source_code: codeToExecute, stdin: stdin || '' });
+    if (localRes) {
+      judge0Result = localRes;
+      isLocalResult = true;
+      executionModeLabel = sciModules.length > 0
+        ? `Local Python Sandbox (${sciModules.join(', ')})`
+        : 'Local Python Sandbox';
+    }
+  }
+
+  if (!judge0Result) {
+    try {
+      judge0Result = await submitToJudge0(langData.id, codeToExecute, stdin || '');
+    } catch (apiErr) {
+      // Brief backoff before trying secondary/retry compiler ID on transient network drops
+      await new Promise(r => setTimeout(r, 400));
+      const retryId = (langData.fallbackId && langData.fallbackId !== langData.id)
+        ? langData.fallbackId
+        : langData.id;
       try {
-        judge0Result = await submitToJudge0(langData.fallbackId, codeToExecute, stdin || '');
+        judge0Result = await submitToJudge0(retryId, codeToExecute, stdin || '');
       } catch (fallbackErr) {
-        console.error('Judge0 primary and secondary compilers unreachable:', fallbackErr.message);
-        return {
-          status: 503,
-          data: {
-            success: false,
-            status: { id: 13, description: 'Service Unavailable' },
-            error: 'Execution service unavailable. Please try again later.',
-            backend_error: true
-          }
-        };
+        console.error('Judge0 primary and fallback compilers unreachable:', fallbackErr.message);
       }
-    } else {
-      console.error('Judge0 compiler unreachable:', apiErr.message);
+    }
+
+    // Fallback to local execution if Judge0 missed a locally-installed Python library or was unreachable
+    const decodedStderr = judge0Result ? b64decode(judge0Result.stderr) : '';
+    const missingModMatch = langKey === 'python' && decodedStderr.match(/ModuleNotFoundError:\s*No module named ['"]([^'"]+)['"]/);
+    if (
+      (!judge0Result && ['c', 'cpp', 'python', 'javascript'].includes(langKey)) ||
+      (missingModMatch && hasLocalPythonModules([missingModMatch[1].split('.')[0]]))
+    ) {
+      const localRes = await executeLocal({ language: langKey, source_code: codeToExecute, stdin: stdin || '' });
+      if (localRes) {
+        judge0Result = localRes;
+        isLocalResult = true;
+        executionModeLabel = missingModMatch
+          ? `Local Python Sandbox (${missingModMatch[1]})`
+          : `Local ${langData.compiler} Sandbox`;
+      }
+    }
+
+    if (!judge0Result) {
       return {
         status: 503,
         data: {
@@ -374,11 +422,12 @@ async function executeCode({ language, source_code, stdin }) {
     }
   }
 
-  // Decode Base64 Output Fields
-  let stdout = b64decode(judge0Result.stdout);
-  const stderr = b64decode(judge0Result.stderr);
-  const compileOutput = b64decode(judge0Result.compile_output);
-  const message = b64decode(judge0Result.message);
+  // Decode Output Fields (raw UTF-8 for local runner, base64 for Judge0)
+  const decodeField = (val) => (isLocalResult ? (val || '') : b64decode(val));
+  let stdout = decodeField(judge0Result.stdout);
+  const stderr = decodeField(judge0Result.stderr);
+  const compileOutput = decodeField(judge0Result.compile_output);
+  const message = decodeField(judge0Result.message);
   const statusId = judge0Result.status ? judge0Result.status.id : 0;
   const statusDesc = judge0Result.status ? judge0Result.status.description : 'Unknown';
 
@@ -411,7 +460,9 @@ async function executeCode({ language, source_code, stdin }) {
     problems: problems,
     language: langKey,
     compiler: langData.name,
-    execution_mode: 'Judge0 Isolated Sandbox',
+    execution_mode: executionModeLabel,
+    compile_timeout_ms: COMPILE_TIMEOUT_MS,
+    execution_timeout_ms: MAX_EXECUTION_TIMEOUT_MS,
     is_graphics: graphicsDetection.isGraphics || !!graphicsOutput,
     graphics_engine: (graphicsOutput && graphicsOutput.engine) || graphicsDetection.engine || null
   };

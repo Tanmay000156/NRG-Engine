@@ -7,6 +7,10 @@ echo  📡 Port: 3000
 echo  🛡 Backend: Judge0 CE Cloud Sandbox
 echo ====================================================
 echo Starting Node.js server...
+if not exist node_modules (
+    echo Installing missing Node.js dependencies...
+    call npm install
+)
 node server.js
 if %errorlevel% neq 0 (
     echo.
