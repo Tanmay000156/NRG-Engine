@@ -1141,7 +1141,7 @@
     }
 
     /* ==========================================================================
-       CODE EDITOR WORKSPACE (Visible Blinking Cursor & Accurate Caret)
+       CODE EDITOR WORKSPACE (Pixel-Locked Caret, Track Sync & Ligature-Free Grid)
        ========================================================================== */
     .editor-body-wrap {
       display: flex;
@@ -1156,78 +1156,119 @@
 
     .editor-line-numbers {
       width: var(--editor-gutter-width, 46px);
+      flex: 0 0 var(--editor-gutter-width, 46px);
       text-align: right;
-      padding: 6px 12px 6px 0;
+      padding: 0;
+      box-sizing: border-box;
       color: var(--code-line-num);
       font-family: inherit;
       font-size: inherit;
       line-height: inherit;
       user-select: none;
-      flex-shrink: 0;
       font-variant-numeric: tabular-nums;
       overflow: hidden;
+      position: relative;
     }
 
-    /* Underlying Syntax Highlighted HTML Display */
+    .editor-line-num-track {
+      padding: 6px 8px 64px 0;
+      box-sizing: border-box;
+      will-change: transform;
+    }
+
+    /* Underlying Syntax Highlighted HTML Display (Zero-Clamp Viewport Mask) */
     .editor-content-area {
       position: absolute;
       top: 0;
       left: var(--editor-gutter-width, 46px);
       right: 0;
       bottom: 0;
-      padding: 6px 8px;
+      padding: 0;
+      box-sizing: border-box;
       font-family: inherit;
       font-size: inherit;
       line-height: inherit;
-      white-space: pre;
+      font-weight: 400;
+      letter-spacing: 0;
+      word-spacing: 0;
+      font-variant-ligatures: none;
+      font-feature-settings: "liga" 0, "calt" 0, "kern" 0;
+      font-synthesis: none;
+      white-space: normal;
       tab-size: var(--editor-tab-size);
+      -moz-tab-size: var(--editor-tab-size);
       color: var(--text-main);
       overflow: hidden;
       pointer-events: none; /* Mouse clicks pass directly through to textarea */
       z-index: 2;
     }
 
+    .editor-lines-track {
+      box-sizing: border-box;
+      padding: 6px 8px;
+      min-width: 100%;
+      width: max-content;
+      white-space: pre;
+      overflow-wrap: normal;
+      word-break: normal;
+      will-change: transform;
+    }
+
     .editor-line {
       position: relative;
+      margin: 0;
+      padding: 0;
       min-height: var(--editor-line-height);
-      padding-left: 2px;
-      padding-right: 16px;
     }
     .editor-line.active-line {
       background: var(--code-active-line);
       border-radius: 3px;
     }
 
-    /* Syntax Tokens */
-    .syn-preproc { color: var(--syn-preproc); font-weight: 600; }
-    .syn-string  { color: var(--syn-string); }
-    .syn-keyword { color: var(--syn-keyword); font-weight: 600; }
-    .syn-type    { color: var(--syn-type); font-weight: 600; }
-    .syn-func    { color: var(--syn-func); font-weight: 600; }
-    .syn-comment { color: var(--syn-comment); font-style: italic; }
-    .syn-number  { color: var(--syn-number); }
+    /* Syntax Tokens (Strict weight: 400 so advance width never drifts from textarea caret) */
+    .syn-preproc { color: var(--syn-preproc); font-weight: 400; }
+    .syn-string  { color: var(--syn-string); font-weight: 400; }
+    .syn-keyword { color: var(--syn-keyword); font-weight: 400; }
+    .syn-type    { color: var(--syn-type); font-weight: 400; }
+    .syn-func    { color: var(--syn-func); font-weight: 400; }
+    .syn-comment { color: var(--syn-comment); font-style: italic; font-weight: 400; }
+    .syn-number  { color: var(--syn-number); font-weight: 400; }
 
-    /* Interactive Overlay Textarea with PROMINENT BLINKING CARET */
+    /* Interactive Overlay Textarea with Pixel-Aligned Caret */
     .editor-code-input {
       position: absolute;
       top: 0;
       left: var(--editor-gutter-width, 46px);
       right: 0;
       bottom: 0;
+      box-sizing: border-box;
       padding: 6px 8px;
       background: transparent;
       color: transparent; /* Transparent text allows syntax colors underneath to show */
-      caret-color: var(--primary-blue); /* BLINKING ELECTRIC BLUE CURSOR IS CLEARLY VISIBLE! */
+      caret-color: var(--pg-btn-primary, var(--primary-blue));
       font-family: inherit;
       font-size: inherit;
       line-height: inherit;
+      font-weight: 400;
+      letter-spacing: 0;
+      word-spacing: 0;
+      font-variant-ligatures: none;
+      font-feature-settings: "liga" 0, "calt" 0, "kern" 0;
+      font-synthesis: none;
       white-space: pre;
+      overflow-wrap: normal;
+      word-break: normal;
       tab-size: var(--editor-tab-size);
+      -moz-tab-size: var(--editor-tab-size);
       resize: none;
       border: 0;
       outline: 0;
       overflow: auto;
       z-index: 5;
+    }
+    .editor-code-input::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
     }
     .editor-code-input::selection {
       background: rgba(100, 116, 139, 0.14);
@@ -3122,8 +3163,9 @@
     }
     .chat-bubble.mine {
       align-self: flex-end;
-      background: var(--primary-gradient);
-      color: white;
+      background: var(--pg-btn-primary, var(--primary-gradient));
+      color: var(--pg-btn-primary-text, #ffffff);
+      border: 1px solid var(--pg-border);
     }
     .chat-bubble.theirs {
       align-self: flex-start;
@@ -3583,12 +3625,19 @@
       padding: 4px 10px;
     }
 
-    /* Word Wrap toggle support */
+    /* Word Wrap toggle support (Exact textarea <-> track wrap parity) */
     .editor-body-wrap.word-wrap .editor-code-input,
-    .editor-body-wrap.word-wrap .editor-content-area {
+    .editor-body-wrap.word-wrap .editor-lines-track {
       white-space: pre-wrap !important;
-      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: normal !important;
+    }
+    .editor-body-wrap.word-wrap .editor-code-input {
       overflow-x: hidden !important;
+    }
+    .editor-body-wrap.word-wrap .editor-lines-track {
+      width: 100% !important;
+      min-width: 0 !important;
     }
 
     /* Tab Dirty / Unsaved indicator */
@@ -4517,10 +4566,16 @@
       display: flex;
     }
     .editor-body-wrap.show-explorer .editor-line-numbers {
-      min-width: var(--editor-gutter-width, 54px);
+      width: var(--editor-gutter-width, 46px);
+      flex: 0 0 var(--editor-gutter-width, 46px);
     }
+    .editor-body-wrap.show-explorer .editor-content-area,
     .editor-body-wrap.show-explorer .editor-code-input {
-      left: calc(210px + var(--editor-gutter-width, 54px));
+      left: calc(210px + var(--editor-gutter-width, 46px));
+    }
+    .editor-body-wrap.show-explorer.hide-line-numbers .editor-content-area,
+    .editor-body-wrap.show-explorer.hide-line-numbers .editor-code-input {
+      left: 218px;
     }
     .explorer-tree-item {
       display: flex;
@@ -5308,9 +5363,9 @@
     }
 
     .editor-footer {
-      height: 26px !important;
-      min-height: 26px;
-      padding: 0 12px !important;
+      height: auto !important;
+      min-height: 30px !important;
+      padding: 4px 12px !important;
       border-top: 1px solid var(--studio-border) !important;
       background: var(--studio-shell) !important;
       font-size: 11px !important;
@@ -6187,9 +6242,10 @@
       border: 1px solid var(--pg-border) !important;
     }
 
-    .user-avatar-badge {
-      background: var(--pg-btn-primary) !important;
-      color: var(--pg-btn-primary-text) !important;
+    .user-avatar-badge,
+    .profile-dropdown-avatar {
+      border: 1.5px solid var(--pg-border-strong) !important;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
     }
 
     /* Main Layout Shell + Detached Floating Liquid Glass Sidebar Pill */
@@ -6640,7 +6696,6 @@
       border-color: transparent !important;
     }
 
-    .profile-dropdown-avatar,
     .file-tab .lang-badge-icon,
     .compiler-badge,
     .lang-icon-badge,
@@ -6951,6 +7006,79 @@
       white-space: nowrap;
     }
 
+    /* Editor Taskbar Optimization (Zero-wrap single bar when AI Studio open or closed) */
+    .editor-footer {
+      width: 100%;
+      container-type: inline-size;
+      height: auto !important;
+      min-height: 30px !important;
+      padding: 4px 12px !important;
+      gap: 10px !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: nowrap;
+      overflow: hidden;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+
+    .editor-stats {
+      display: flex;
+      align-items: center;
+      gap: 7px !important;
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    .editor-stats span {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .auto-indent-wrap {
+      flex-shrink: 0 !important;
+      display: flex;
+      align-items: center;
+      gap: 7px !important;
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    .ai-status-pill {
+      flex-shrink: 0;
+      white-space: nowrap;
+      max-width: 156px;
+      overflow: hidden;
+    }
+
+    #aiStatusText {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 124px;
+      display: inline-block;
+      vertical-align: bottom;
+    }
+
+    @container (max-width: 740px) {
+      .editor-stats .stat-optional {
+        display: none !important;
+      }
+    }
+
+    @container (max-width: 560px) {
+      .editor-stats .stat-secondary {
+        display: none !important;
+      }
+      .auto-indent-label-text {
+        display: none;
+      }
+    }
+
     @media (max-width: 640px) {
       .editor-header {
         height: auto !important;
@@ -6971,6 +7099,12 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .editor-footer {
+        flex-wrap: wrap !important;
+        padding: 5px 10px !important;
+        gap: 6px !important;
+        white-space: normal;
       }
       .editor-stats {
         flex-wrap: wrap !important;
@@ -7517,12 +7651,10 @@
             </aside>
 
             <!-- Line Numbers Column -->
-            <div class="editor-line-numbers" id="editorLineNumbers">
-              <div>1</div>
-            </div>
+            <div class="editor-line-numbers" id="editorLineNumbers"><div class="editor-line-num-track" id="editorLineNumTrack"><div>1</div></div></div>
 
             <!-- Syntax Highlighted Display Area -->
-            <div class="editor-content-area" id="editorContentArea"></div>
+            <div class="editor-content-area" id="editorContentArea"><div class="editor-lines-track" id="editorLinesTrack"></div></div>
 
             <!-- Native Interactive Textarea with Prominent Blue Caret -->
             <textarea class="editor-code-input" id="editorCodeInput" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
@@ -7544,15 +7676,15 @@
               <span class="stat-sep">|</span>
               <span id="statLines">7 lines</span>
               <span class="stat-sep">|</span>
-              <span id="statChars">74 characters</span>
-              <span class="stat-sep">|</span>
-              <span id="statEncoding">UTF-8</span>
-              <span class="stat-sep">|</span>
-              <span id="statLineEnding">LF</span>
+              <span id="statChars">74 chars</span>
+              <span class="stat-sep stat-optional">|</span>
+              <span class="stat-optional" id="statEncoding">UTF-8</span>
+              <span class="stat-sep stat-optional">|</span>
+              <span class="stat-optional" id="statLineEnding">LF</span>
               <span class="stat-sep">|</span>
               <span id="statSpaces">Spaces: 4</span>
-              <span class="stat-sep">|</span>
-              <span id="statWrap">Wrap: Off</span>
+              <span class="stat-sep stat-secondary">|</span>
+              <span class="stat-secondary" id="statWrap">Wrap: Off</span>
             </div>
 
             <div class="auto-indent-wrap">
@@ -7560,7 +7692,7 @@
                 <span class="ai-status-dot"></span>
                 <span id="aiStatusText">AI Ready</span>
               </span>
-              <span>Auto-indent:</span>
+              <span class="auto-indent-label-text">Auto-indent:</span>
               <label class="toggle-switch">
                 <input type="checkbox" id="toggleAutoIndent" checked>
                 <span class="toggle-slider"></span>
@@ -8105,7 +8237,6 @@
         <div class="dock-limits-card">
           <div class="dock-limits-title">Execution Guardrails</div>
           <div>Compile limit: <strong>10s</strong> • Run max: <strong>30s</strong></div>
-          <div>Python Plot + Pyodide WASM • GCC conio.h</div>
         </div>
 
       </aside>
@@ -9922,7 +10053,9 @@ echo "Hello, NRG Engine from PHP!\\n";
     // DOM Elements
     const codeInput = document.getElementById('editorCodeInput');
     const contentArea = document.getElementById('editorContentArea');
+    const contentTrack = document.getElementById('editorLinesTrack');
     const lineNumbersGutter = document.getElementById('editorLineNumbers');
+    const lineNumTrack = document.getElementById('editorLineNumTrack');
     const statLnCol = document.getElementById('statLnCol');
     const statLines = document.getElementById('statLines');
     const statChars = document.getElementById('statChars');
@@ -10235,8 +10368,7 @@ echo "Hello, NRG Engine from PHP!\\n";
         const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
         const maxScroll = Math.max(0, codeInput.scrollHeight - codeInput.clientHeight);
         codeInput.scrollTop = Math.round(ratio * maxScroll);
-        contentArea.scrollTop = codeInput.scrollTop;
-        lineNumbersGutter.scrollTop = codeInput.scrollTop;
+        if (typeof syncEditorScroll === 'function') syncEditorScroll();
         renderMinimap();
       };
       mm.addEventListener('mousedown', (e) => { dragging = true; jumpToRatio(e.clientY); e.stopPropagation(); });
@@ -10525,8 +10657,60 @@ echo "Hello, NRG Engine from PHP!\\n";
     };
     window.ProjectExplorer = ProjectExplorer;
 
+    let lastCaretKey = '';
+    let caretRafId = 0;
+
+    function syncEditorScroll() {
+      if (!codeInput) return;
+      const sx = codeInput.scrollLeft || 0;
+      const sy = codeInput.scrollTop || 0;
+      if (contentArea && contentTrack) {
+        if (contentArea.scrollTop !== 0) contentArea.scrollTop = 0;
+        if (contentArea.scrollLeft !== 0) contentArea.scrollLeft = 0;
+        contentTrack.style.transform = `translate3d(${-sx}px, ${-sy}px, 0)`;
+      }
+      if (lineNumbersGutter && lineNumTrack) {
+        if (lineNumbersGutter.scrollTop !== 0) lineNumbersGutter.scrollTop = 0;
+        lineNumTrack.style.transform = `translate3d(0, ${-sy}px, 0)`;
+      }
+    }
+
+    function syncEditorViewport() {
+      if (!codeInput || !contentArea) return;
+      const minimapOffset = window.appSettings?.minimap ? 88 : 0;
+      const sbW = Math.max(0, codeInput.offsetWidth - codeInput.clientWidth);
+      const sbH = Math.max(0, codeInput.offsetHeight - codeInput.clientHeight);
+      contentArea.style.right = `${minimapOffset + sbW}px`;
+      contentArea.style.bottom = `${sbH}px`;
+
+      if (contentTrack && lineNumTrack) {
+        const isWrap = !!(window.appSettings?.wordWrap);
+        const rowEls = lineNumTrack.children;
+        if (isWrap) {
+          const lineEls = contentTrack.querySelectorAll(':scope > .editor-line[data-line]');
+          for (let i = 0; i < rowEls.length; i++) {
+            const lineEl = lineEls[i];
+            if (lineEl) {
+              const h = lineEl.getBoundingClientRect().height;
+              rowEls[i].style.height = h > 0 ? `${h}px` : '';
+            } else {
+              rowEls[i].style.height = '';
+            }
+          }
+        } else {
+          for (let i = 0; i < rowEls.length; i++) {
+            if (rowEls[i].style.height) rowEls[i].style.height = '';
+          }
+        }
+      }
+      syncEditorScroll();
+    }
+
     function updateEditorDisplay() {
       const selPos = codeInput && typeof codeInput.selectionStart === 'number' ? codeInput.selectionStart : 0;
+      const selEnd = codeInput && typeof codeInput.selectionEnd === 'number' ? codeInput.selectionEnd : selPos;
+      lastCaretKey = `${selPos}:${selEnd}:${currentCode.length}`;
+
       const beforeCaret = currentCode.slice(0, selPos).split('\n');
       activeLineNumber = beforeCaret.length;
       const activeColNumber = beforeCaret[beforeCaret.length - 1].length + 1;
@@ -10534,6 +10718,12 @@ echo "Hello, NRG Engine from PHP!\\n";
       const lines = currentCode.split('\n');
       const totalLines = lines.length;
       const totalChars = currentCode.length;
+
+      // Dynamically widen gutter if file reaches 100+ or 1000+ lines so numbers never collide with text
+      const fs = Number(window.appSettings?.fontSize || 14.5);
+      const baseGutter = fs >= 18 ? 54 : 46;
+      const targetGutter = totalLines >= 1000 ? Math.max(baseGutter, 64) : (totalLines >= 100 ? Math.max(baseGutter, 54) : baseGutter);
+      document.documentElement.style.setProperty('--editor-gutter-width', `${targetGutter}px`);
 
       // Update Line Numbers Gutter with interactive Code Fold Chevrons
       const foldMap = typeof CodeFoldManager !== 'undefined'
@@ -10547,8 +10737,9 @@ echo "Hello, NRG Engine from PHP!\\n";
           : '<span style="width:14px;display:inline-block;"></span>';
         gutterHtml += `<div class="editor-line-num-row"><span>${i}</span>${foldBtn}</div>`;
       }
-      lineNumbersGutter.innerHTML = gutterHtml;
-      lineNumbersGutter.querySelectorAll('.fold-toggle-btn').forEach(btn => {
+      const gutterTarget = lineNumTrack || lineNumbersGutter;
+      gutterTarget.innerHTML = gutterHtml;
+      gutterTarget.querySelectorAll('.fold-toggle-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           CodeFoldManager.toggleLine(Number(btn.dataset.foldLine));
@@ -10557,13 +10748,15 @@ echo "Hello, NRG Engine from PHP!\\n";
 
       // Update Syntax Highlight Area + Bracket Highlight + Inline Ghost Prediction
       const ghostInfo = typeof AiPredictor !== 'undefined' ? AiPredictor.getGhostInfoForRender() : null;
-      contentArea.innerHTML = highlightSyntax(currentCode, currentLang, ghostInfo);
+      const trackTarget = contentTrack || contentArea;
+      trackTarget.innerHTML = highlightSyntax(currentCode, currentLang, ghostInfo);
 
       // Update Status Bar with real cursor line & column
       statLines.textContent = `${totalLines} line${totalLines !== 1 ? 's' : ''}`;
-      statChars.textContent = `${totalChars} character${totalChars !== 1 ? 's' : ''}`;
+      statChars.textContent = `${totalChars} chars`;
       statLnCol.textContent = `Ln ${activeLineNumber}, Col ${activeColNumber}`;
 
+      syncEditorViewport();
       if (window.appSettings?.minimap) renderMinimap();
       ProjectExplorer.render();
     }
@@ -10589,9 +10782,25 @@ echo "Hello, NRG Engine from PHP!\\n";
     }
 
     codeInput.addEventListener('click', calculateCaretPosition);
+    codeInput.addEventListener('mouseup', () => {
+      if (document.activeElement === codeInput) calculateCaretPosition();
+    });
     codeInput.addEventListener('keyup', (e) => {
       if (['Shift', 'Control', 'Alt', 'Meta', 'Tab', 'Escape'].includes(e.key)) return;
       calculateCaretPosition();
+    });
+    document.addEventListener('selectionchange', () => {
+      if (document.activeElement !== codeInput) return;
+      const key = `${codeInput.selectionStart}:${codeInput.selectionEnd}:${codeInput.value.length}`;
+      if (key === lastCaretKey) return;
+      if (caretRafId) cancelAnimationFrame(caretRafId);
+      caretRafId = requestAnimationFrame(() => {
+        caretRafId = 0;
+        if (document.activeElement === codeInput) {
+          currentCode = codeInput.value;
+          updateEditorDisplay();
+        }
+      });
     });
     codeInput.addEventListener('blur', () => {
       if (typeof AiPredictor !== 'undefined' && AiPredictor.active) {
@@ -10599,16 +10808,22 @@ echo "Hello, NRG Engine from PHP!\\n";
       }
     });
 
-    // Synchronize Scrolling between Textarea, Highlight Layer, Line Numbers & Minimap
+    // Synchronize Scrolling between Textarea, Highlight Track, Line Numbers & Minimap
     codeInput.addEventListener('scroll', () => {
-      contentArea.scrollTop = codeInput.scrollTop;
-      contentArea.scrollLeft = codeInput.scrollLeft;
-      lineNumbersGutter.scrollTop = codeInput.scrollTop;
+      syncEditorScroll();
       if (window.appSettings?.minimap) renderMinimap();
     });
 
+    if (typeof ResizeObserver !== 'undefined') {
+      const editorResizeObserver = new ResizeObserver(() => {
+        syncEditorViewport();
+      });
+      editorResizeObserver.observe(codeInput);
+    }
+
     // Clicking anywhere in editor body focuses textarea
-    document.getElementById('editorBodyWrap').addEventListener('click', () => {
+    document.getElementById('editorBodyWrap').addEventListener('click', (e) => {
+      if (e.target && e.target.closest('.editor-explorer-drawer, .editor-minimap, .fold-toggle-btn')) return;
       codeInput.focus();
     });
 
@@ -11740,6 +11955,7 @@ echo "Hello, NRG Engine from PHP!\\n";
       if (mainLayout) {
         const isHidden = mainLayout.classList.toggle('right-panel-hidden');
         syncWorkspaceMenuStates();
+        if (typeof syncEditorViewport === 'function') requestAnimationFrame(syncEditorViewport);
         showToast(isHidden ? 'AI Studio panel hidden (Wide Editor)' : 'AI Studio panel visible');
       }
     }
@@ -12332,9 +12548,10 @@ echo "Hello, NRG Engine from PHP!\\n";
       statLnCol.textContent = `Ln ${line}, Col ${col}`;
       updateEditorDisplay();
 
-      const lineHeight = 21;
+      const lineHeight = parseFloat(getComputedStyle(codeInput).lineHeight) || 24;
       const targetScroll = Math.max(0, (line - 5) * lineHeight);
       codeInput.scrollTop = targetScroll;
+      if (typeof syncEditorScroll === 'function') syncEditorScroll();
 
       showToast(`Navigated to Line ${line}, Column ${col}`);
     }
@@ -15531,9 +15748,10 @@ public class Main {
         if (emptyNotice) emptyNotice.style.display = remotePeers.length === 0 ? 'block' : 'none';
         if (!list) return;
 
+        const selfAccent = String(window.appSettings?.avatarAccent || '#171A21');
         let html = `
           <div class="collab-user-row" style="background:var(--studio-hover);">
-            <div class="collab-avatar" id="collabSelfInitials" style="border-color:var(--pg-border-strong); background:#171A21; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">${escapeHtml(self.initials)}</div>
+            <div class="collab-avatar" id="collabSelfInitials" style="border-color:var(--pg-border-strong); background:${escapeHtml(selfAccent)}; color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">${escapeHtml(self.initials)}</div>
             <div>
               <div id="collabSelfName" style="font-size:13px; font-weight:700;">${escapeHtml(self.name)} (You)</div>
               <div style="font-size:11px; color:var(--primary-blue);" id="collabSelfRoleMeta">${escapeHtml(self.role)} • Ln ${typeof activeLineNumber !== 'undefined' ? activeLineNumber : 1}</div>
@@ -15553,6 +15771,15 @@ public class Main {
           `;
         }
         list.innerHTML = html;
+        if (typeof ProfileManager !== 'undefined' && typeof ProfileManager.renderAvatarElement === 'function') {
+          ProfileManager.renderAvatarElement(
+            document.getElementById('collabSelfInitials'),
+            self.name,
+            self.initials,
+            String(window.appSettings?.avatarDataUrl || ''),
+            selfAccent
+          );
+        }
       },
 
       appendChat(sender, text, isSelf = false) {
@@ -15865,13 +16092,27 @@ public class Main {
         }, 3600);
       },
 
+      getContrastAvatarText(hex) {
+        const h = String(hex || '').replace('#', '').trim();
+        const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+        if (!/^[0-9a-fA-F]{6}$/.test(full)) return '#ffffff';
+        const r = parseInt(full.slice(0, 2), 16);
+        const g = parseInt(full.slice(2, 4), 16);
+        const b = parseInt(full.slice(4, 6), 16);
+        const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return lum > 0.62 ? '#171A21' : '#ffffff';
+      },
+
       renderAvatarElement(el, label, initials, avatarUrl, accent) {
         if (!el) return;
         if (avatarUrl) {
           el.style.background = 'transparent';
+          el.style.color = '';
           el.innerHTML = `<img src="${avatarUrl}" alt="${escapeHtml(label)}" class="avatar-img-fill">`;
         } else {
-          el.style.background = accent || '#171A21';
+          const bg = accent || '#171A21';
+          el.style.background = bg;
+          el.style.color = this.getContrastAvatarText(bg);
           el.textContent = initials;
         }
       },
@@ -16162,15 +16403,19 @@ public class Main {
         if (gutter) gutter.style.display = s.lineNumbers ? 'block' : 'none';
         if (minimap) minimap.style.display = s.minimap ? 'block' : 'none';
 
-        [codeInput, contentArea, gutter].forEach((el) => {
+        [codeInput, contentArea, contentTrack, gutter, lineNumTrack].forEach((el) => {
           if (!el) return;
           el.style.fontFamily = s.fontFamily;
           el.style.fontSize = `${s.fontSize}px`;
           el.style.lineHeight = `${lineHeightPx}px`;
-          if (el !== gutter) {
+          if (el === codeInput || el === contentTrack) {
             el.style.tabSize = s.tabSize;
             el.style.whiteSpace = s.wordWrap ? 'pre-wrap' : 'pre';
-            el.style.wordBreak = s.wordWrap ? 'break-word' : 'normal';
+            el.style.overflowWrap = s.wordWrap ? 'break-word' : 'normal';
+            el.style.wordBreak = 'normal';
+          } else if (el === contentArea) {
+            el.style.tabSize = s.tabSize;
+            el.style.whiteSpace = 'normal';
           }
         });
 
