@@ -1,14 +1,14 @@
 /**
- * NRG ENGINE — VERCEL SERVERLESS FUNCTION: /api/health
- * Returns service health and supported languages.
+ * NRG ENGINE — /api/health
+ * Service readiness, supported languages, and active runtime features.
  */
 
 const { LANGUAGE_REGISTRY } = require('./_compiler');
+const { BRAND_IDENTITY } = require('./_config');
+const { applySecurityHeaders } = require('./_security');
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  applySecurityHeaders(res, req.headers?.origin || '');
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -20,10 +20,24 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({
     status: 'online',
-    service: 'NRG Engine Compiler Backend',
-    backend: 'Judge0 CE',
-    version: '1.0.0',
+    service: `${BRAND_IDENTITY.productName} Compiler Backend`,
+    studio: BRAND_IDENTITY.studioName,
+    backend: 'Judge0 CE + Sandboxed Local & WASM Scientific Runtimes',
+    version: BRAND_IDENTITY.version,
     supported_languages: Object.keys(LANGUAGE_REGISTRY),
-    features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'python_turtle_graphics', 'universal_graphics_engine']
+    features: [
+      'real_compiler',
+      'compile_cache',
+      'terminal_ansi_clrscr',
+      'multiline_formatting',
+      'ai_autocomplete',
+      'ai_assistant',
+      'python_turtle_graphics',
+      'pyodide_scientific_fallback',
+      'universal_graphics_engine',
+      'session_auth',
+      'rate_limiting',
+      'sandboxed_execution'
+    ]
   }));
 };

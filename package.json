@@ -7,8 +7,14 @@
     "dev": "node server.js",
     "dev:ui": "vite",
     "build:vite": "vite build",
-    "test": "node tests/test_10_languages.js",
-    "test:vercel": "node tests/test_vercel_handlers.js"
+    "test": "node tests/run_full_qa_suite.js",
+    "test:qa": "node tests/run_full_qa_suite.js",
+    "test:langs": "node tests/test_10_languages.js",
+    "test:vercel": "node tests/test_vercel_handlers.js",
+    "test:interactive": "node tests/test_interactive_manager.js",
+    "test:worker": "node tests/test_standalone_worker.js",
+    "test:security": "node tests/test_security_backend.js",
+    "test:all": "node tests/run_full_qa_suite.js && node tests/test_vercel_handlers.js && node tests/test_interactive_manager.js && node tests/test_standalone_worker.js && node tests/test_security_backend.js && node tests/test_10_languages.js"
   },
   "keywords": [
     "ide",
@@ -32,7 +38,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "Tanmay Verma",
+  "author": "Tanmay NRG (NRG CoreX Studios)",
   "license": "MIT",
   "dependencies": {
     "@vitejs/plugin-react": "^6.3.0",
@@ -40,5 +46,8 @@
     "react-dom": "^19.3.1",
     "vite": "^8.3.8",
     "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@playwright/cli": "^0.1.25"
   }
 }

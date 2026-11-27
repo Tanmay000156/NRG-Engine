@@ -1,21 +1,56 @@
 /**
- * NRG ENGINE — COMPILER BACKEND SERVER (LOCAL DEV & PROD)
- * Multi-Language Execution Service powered by Judge0 CE Sandbox & Local Runtimes
- * Hardened with Rate Limiting, CORS Validation & Unified Glassmorphic UI Serving
+ * NRG ENGINE — UNIFIED HTTP & WEBSOCKET SERVER (LOCAL & RENDER PRODUCTION)
+ * Routes API traffic through shared modular handlers under ./api/* with strict
+ * rate limiting, signed session cookies, sandboxed execution, and safe static serving.
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { LANGUAGE_REGISTRY, executeCode } = require('./api/_compiler');
-const { DEFAULT_SETTINGS, ACCOUNT_ROLES, FONT_FAMILY_OPTIONS, PREDICTOR_LIMITS } = require('./api/_config');
-const { predictCode } = require('./api/_predictor');
-const { getClientIp, checkRateLimit, applySecurityHeaders } = require('./api/_security');
+
+// Load local .env / .env.local if present without overwriting existing environment variables
+function loadLocalEnvFiles() {
+  for (const envName of ['.env', '.env.local']) {
+    const envPath = path.join(__dirname, envName);
+    if (!fs.existsSync(envPath)) continue;
+    try {
+      const raw = fs.readFileSync(envPath, 'utf8');
+      for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx <= 0) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (key && process.env[key] === undefined) {
+          process.env[key] = val;
+        }
+      }
+    } catch (_) {}
+  }
+}
+loadLocalEnvFiles();
+
+const healthHandler = require('./api/health');
+const languagesHandler = require('./api/languages');
+const configHandler = require('./api/config');
+const predictHandler = require('./api/predict');
+const executeHandler = require('./api/execute');
+const aiAssistHandler = require('./api/ai-assist');
+const diagnosticsHandler = require('./api/diagnostics');
+const authHandler = require('./api/auth');
+const projectsHandler = require('./api/projects');
+const gitBranchHandler = require('./api/git-branch');
+
+const { BRAND_IDENTITY } = require('./api/_config');
+const { applySecurityHeaders, parseBody, checkRateLimit, getClientIp } = require('./api/_security');
 const interactiveManager = require('./api/_interactive_manager');
 
 const PORT = process.env.PORT || 3000;
 
-// MIME types for static server
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -32,9 +67,8 @@ const MIME_TYPES = {
   '.map': 'application/json'
 };
 
-// HTTP Server
 const server = http.createServer(async (req, res) => {
-  const reqOrigin = req.headers['origin'] || req.headers['host'] || '';
+  const reqOrigin = req.headers['origin'] || '';
   applySecurityHeaders(res, reqOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -46,224 +80,133 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, 'http://localhost');
   const pathname = parsedUrl.pathname;
 
-  // 1. Health Endpoint
-  if (req.method === 'GET' && (pathname === '/api/health' || pathname === '/health')) {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'online',
-      service: 'NRG Engine Compiler Backend',
-      backend: 'Judge0 CE',
-      version: '1.0.0',
-      supported_languages: Object.keys(LANGUAGE_REGISTRY),
-      features: ['real_compiler', 'terminal_ansi', 'multiline_formatting', 'ai_autocomplete', 'python_turtle_graphics', 'universal_graphics_engine', 'rate_limiting', 'sandboxed_execution']
-    }));
-    return;
+  // API Routing (single source of truth shared with Vercel serverless handlers)
+  if (pathname === '/api/health' || pathname === '/health') return healthHandler(req, res);
+  if (pathname === '/api/languages') return languagesHandler(req, res);
+  if (pathname === '/api/config') return configHandler(req, res);
+  if (pathname === '/api/git-branch') return gitBranchHandler(req, res);
+  if (pathname === '/api/predict') return predictHandler(req, res);
+  if (pathname === '/api/execute') return executeHandler(req, res);
+  if (
+    pathname === '/api/ai/assist' ||
+    pathname === '/api/ai-assist' ||
+    pathname === '/api/ai/chat' ||
+    pathname === '/api/ai/status' ||
+    pathname === '/api/ai/test'
+  ) {
+    return aiAssistHandler(req, res);
   }
+  if (pathname === '/api/diagnostics') return diagnosticsHandler(req, res);
+  if (pathname === '/api/auth' || pathname === '/api/auth/session') return authHandler(req, res);
+  if (pathname === '/api/projects') return projectsHandler(req, res);
 
-  // 2. Git Branch Endpoint
-  if (req.method === 'GET' && pathname === '/api/git-branch') {
-    const { execSync } = require('child_process');
-    try {
-      if (!fs.existsSync(path.join(__dirname, '.git'))) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ available: false, branch: 'main' }));
-        return;
-      }
-      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-        timeout: 1000,
-        cwd: __dirname,
-        stdio: ['ignore', 'pipe', 'ignore']
-      }).toString().trim();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ available: true, branch }));
-    } catch (e) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ available: false }));
-    }
-    return;
-  }
-
-  // 2.5 Languages Endpoint
-  if (req.method === 'GET' && pathname === '/api/languages') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(LANGUAGE_REGISTRY));
-    return;
-  }
-
-  // 2.6 Centralized Configuration Endpoint
-  if (req.method === 'GET' && pathname === '/api/config') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      defaults: DEFAULT_SETTINGS,
-      accountRoles: ACCOUNT_ROLES,
-      fontFamilies: FONT_FAMILY_OPTIONS,
-      predictorLimits: PREDICTOR_LIMITS
-    }));
-    return;
-  }
-
-  // 2.7 Context-Aware AI Code Prediction Endpoint
-  if (req.method === 'POST' && pathname === '/api/predict') {
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 128 * 1024) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, suggestion: '', error: 'Context payload exceeds limit.' }));
-        req.destroy();
-      }
-    });
-    req.on('end', async () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = await predictCode({
-          language: payload.language,
-          prefix: payload.prefix,
-          suffix: payload.suffix,
-          tabSize: payload.tabSize,
-          trigger: payload.trigger,
-          aiConfig: payload.aiConfig
-        });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, ...result }));
-      } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, suggestion: '', source: 'error', error: err.message }));
-      }
-    });
-    return;
-  }
-
-  // 3. Execution Endpoint (POST /api/execute - Batch Judge0)
-  if (req.method === 'POST' && pathname === '/api/execute') {
-    const clientIp = getClientIp(req);
-    const rateLimit = checkRateLimit(clientIp);
-    if (!rateLimit.allowed) {
+  // Interactive Execution Endpoints (Mode B Persistent WebSocket / SSE)
+  if (req.method === 'POST' && pathname === '/api/interactive/start') {
+    const limit = checkRateLimit(getClientIp(req), 'interactive');
+    if (!limit.allowed) {
       res.writeHead(429, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: false,
-        status: { id: 14, description: 'Rate Limit Exceeded' },
-        error: rateLimit.error
-      }));
+      res.end(JSON.stringify({ success: false, error: limit.error }));
       return;
     }
-
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 512 * 1024) { // 512 KB max
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Payload too large. Limit is 512 KB.' }));
-        req.destroy();
-      }
-    });
-
-    req.on('end', async () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = await executeCode(payload);
-        res.writeHead(result.status, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result.data));
-      } catch (err) {
-        console.error('Execution handler error:', err);
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: false,
-          error: `Compiler Service Error: ${err.message}`,
-          backend_error: true
-        }));
-      }
-    });
+    try {
+      const payload = await parseBody(req, 512 * 1024);
+      const sessionRes = await interactiveManager.startSession(payload);
+      res.writeHead(sessionRes.success ? 200 : (sessionRes.status?.id === 6 ? 400 : 500), { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(sessionRes));
+    } catch (err) {
+      res.writeHead(err.statusCode || 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return;
   }
 
-  // 3.1 Live Interactive Execution Endpoints
-  // Start Session (POST /api/interactive/start)
-  if (req.method === 'POST' && pathname === '/api/interactive/start') {
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 512 * 1024) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Payload exceeds limit' }));
-        req.destroy();
-      }
-    });
-    req.on('end', async () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const sessionRes = await interactiveManager.startSession(payload);
-        res.writeHead(sessionRes.success ? 200 : (sessionRes.status?.id === 6 ? 400 : 500), { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(sessionRes));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
-      }
-    });
-    return;
-  }
-
-  // Subscribe to Live Output Stream (GET /api/interactive/stream)
   if (req.method === 'GET' && pathname === '/api/interactive/stream') {
-    const sessionId = parsedUrl.searchParams.get('sessionId');
-    interactiveManager.subscribeStream(sessionId, res);
+    interactiveManager.subscribeStream(parsedUrl.searchParams.get('sessionId'), res);
     return;
   }
 
-  // Send Input to Running Process (POST /api/interactive/input)
   if (req.method === 'POST' && pathname === '/api/interactive/input') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const inRes = interactiveManager.sendInput(payload.sessionId, payload.input !== undefined ? payload.input : '');
-        res.writeHead(inRes.success ? 200 : 400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(inRes));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
-      }
-    });
+    try {
+      const payload = await parseBody(req, 64 * 1024);
+      const inRes = interactiveManager.sendInput(payload.sessionId, payload.input !== undefined ? payload.input : '');
+      res.writeHead(inRes.success ? 200 : 400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(inRes));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return;
   }
 
-  // Terminate Running Process (POST /api/interactive/stop)
   if (req.method === 'POST' && pathname === '/api/interactive/stop') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const stopRes = interactiveManager.stopSession(payload.sessionId);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(stopRes));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
-      }
-    });
+    try {
+      const payload = await parseBody(req, 16 * 1024);
+      const stopRes = interactiveManager.stopSession(payload.sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(stopRes));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return;
   }
 
-  // 4. Static File Server (Root first for live editing, fallback to dist)
-  let reqPath = parsedUrl.pathname;
-  if (reqPath === '/' || reqPath === '') {
-    reqPath = '/index.html';
+  // Unknown /api/* route should return JSON 404 rather than leaking index.html
+  if (pathname.startsWith('/api/')) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: `API route not found: ${pathname}` }));
+    return;
   }
 
-  const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
-  
-  const rootPath = path.join(__dirname, safePath);
-  const distPath = path.join(__dirname, 'dist', safePath);
-  
+  // Static Asset Serving with Strict Public Allowlist & Sensitive Path Protection
+  let reqPath = pathname === '/' || pathname === '' ? '/index.html' : pathname;
+  let decodedPath = reqPath;
+  try {
+    decodedPath = decodeURIComponent(reqPath);
+  } catch (_) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('400 Bad Request');
+    return;
+  }
+  const normalized = path.posix.normalize(decodedPath).replace(/^\/+/, '');
+  const lowerNorm = normalized.toLowerCase();
+
+  // Explicitly deny traversal, hidden dotfiles, backend source, configs & test suites
+  const blockedPrefixes = ['.git', '.nrg_data', '.env', '.agents', '.playwright', 'node_modules', 'api/', 'worker/', 'tests/', '.vercel'];
+  const blockedRootFiles = new Set([
+    'server.js', 'package.json', 'package-lock.json', 'requirements.txt',
+    'vite.config.js', 'render.yaml', 'vercel.json', 'dockerfile',
+    'docker-compose.yml', 'skills-lock.json', 'start_nrg_engine.bat'
+  ]);
+  if (
+    normalized.includes('..') ||
+    lowerNorm.startsWith('.') ||
+    blockedRootFiles.has(lowerNorm) ||
+    blockedPrefixes.some(p => lowerNorm === p.replace(/\/$/, '') || lowerNorm.startsWith(p))
+  ) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('403 Forbidden');
+    return;
+  }
+
+  const publicDir = path.resolve(__dirname, 'public') + path.sep;
+  const distDir = path.resolve(__dirname, 'dist') + path.sep;
+  const assetsDir = path.resolve(__dirname, 'assets') + path.sep;
+
+  const publicCandidate = path.resolve(__dirname, 'public', normalized);
+  const distCandidate = path.resolve(__dirname, 'dist', normalized);
+  const assetsCandidate = path.resolve(__dirname, normalized);
+
   let targetFile = null;
-  if (fs.existsSync(rootPath) && fs.statSync(rootPath).isFile()) {
-    targetFile = rootPath;
-  } else if (fs.existsSync(distPath) && fs.statSync(distPath).isFile()) {
-    targetFile = distPath;
-  } else if (fs.existsSync(path.join(__dirname, 'index.html'))) {
+  if (lowerNorm === 'index.html' && fs.existsSync(path.join(__dirname, 'index.html'))) {
+    targetFile = path.join(__dirname, 'index.html');
+  } else if (lowerNorm.startsWith('assets/') && assetsCandidate.startsWith(assetsDir) && fs.existsSync(assetsCandidate) && fs.statSync(assetsCandidate).isFile()) {
+    targetFile = assetsCandidate;
+  } else if (publicCandidate.startsWith(publicDir) && fs.existsSync(publicCandidate) && fs.statSync(publicCandidate).isFile()) {
+    targetFile = publicCandidate;
+  } else if (distCandidate.startsWith(distDir) && fs.existsSync(distCandidate) && fs.statSync(distCandidate).isFile()) {
+    targetFile = distCandidate;
+  } else if (!normalized.includes('.') && fs.existsSync(path.join(__dirname, 'index.html'))) {
     targetFile = path.join(__dirname, 'index.html');
   }
 
@@ -275,20 +218,20 @@ const server = http.createServer(async (req, res) => {
 
   const ext = path.extname(targetFile).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
+  applySecurityHeaders(res, reqOrigin, { isHtml: ext === '.html' });
   res.writeHead(200, { 'Content-Type': contentType });
   fs.createReadStream(targetFile).pipe(res);
 });
 
-// Attach Persistent Interactive WebSocket Server
 interactiveManager.attachWebSocketServer(server);
 
 server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(`⚡ NRG ENGINE 2.0 — COMPILER BACKEND SERVER ONLINE`);
+  console.log(`⚡ ${BRAND_IDENTITY.productName} — ${BRAND_IDENTITY.studioName}`);
   console.log(`📡 URL: http://localhost:${PORT}`);
-  console.log(`🔧 Execution Endpoint: http://localhost:${PORT}/api/execute`);
-  console.log(`⚡ Interactive WebSocket: ws://localhost:${PORT}/api/interactive/ws`);
-  console.log(`🛡 Security: Hardened Sandbox + Rate Limiting Active`);
+  console.log(`🔧 Execution: /api/execute | AI: /api/predict & /api/ai/assist`);
+  console.log(`🛡 Security: Isolated Env + Signed Sessions + Rate Limiting`);
   console.log(`====================================================`);
 });
+
+module.exports = server;

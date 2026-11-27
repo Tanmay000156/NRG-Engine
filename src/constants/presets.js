@@ -1,4 +1,4 @@
-// NRG ENGINE 2.0 — Universal Graphics Presets
+// NRG ENGINE — Universal Graphics Presets
 export const GRAPHICS_PRESETS = [
   {
     id: 'turtle_spiral',

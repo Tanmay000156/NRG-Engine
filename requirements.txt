@@ -1,0 +1,10 @@
+# NRG Engine — Python Scientific & Graphics Requirements
+# Used for local Python environments (`pip install -r requirements.txt`) and synchronized
+# with Debian Bookworm apt packages (`python3-*`) in Dockerfile and worker/Dockerfile.
+numpy>=1.24.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+scipy>=1.10.0
+seaborn>=0.12.0
+pillow>=10.0.0
+sympy>=1.12

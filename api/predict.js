@@ -1,13 +1,13 @@
 /**
- * NRG ENGINE — VERCEL SERVERLESS FUNCTION: /api/predict
- * Context-aware inline code prediction endpoint (Mode: LLM if configured / Structural AST analyzer).
+ * NRG ENGINE — /api/predict
+ * Context-aware inline & multiline AI code prediction endpoint.
  */
 
 const { predictCode } = require('./_predictor');
-const { applySecurityHeaders } = require('./_security');
+const { getClientIp, checkRateLimit, applySecurityHeaders, parseBody } = require('./_security');
 
 module.exports = async (req, res) => {
-  applySecurityHeaders(res, req.headers.origin || '');
+  applySecurityHeaders(res, req.headers?.origin || '');
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -22,16 +22,16 @@ module.exports = async (req, res) => {
     return;
   }
 
-  try {
-    let body = req.body;
-    if (typeof body === 'string') {
-      body = JSON.parse(body || '{}');
-    } else if (!body || typeof body !== 'object') {
-      const chunks = [];
-      for await (const c of req) chunks.push(c);
-      body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-    }
+  const limit = checkRateLimit(getClientIp(req), 'predict');
+  if (!limit.allowed) {
+    res.statusCode = 429;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, suggestion: '', error: limit.error }));
+    return;
+  }
 
+  try {
+    const body = await parseBody(req, 128 * 1024);
     const result = await predictCode({
       language: body.language,
       prefix: body.prefix,
@@ -40,12 +40,11 @@ module.exports = async (req, res) => {
       trigger: body.trigger,
       aiConfig: body.aiConfig
     });
-
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: true, ...result }));
   } catch (err) {
-    res.statusCode = 200;
+    res.statusCode = err.statusCode || 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: false, suggestion: '', source: 'error', error: err.message }));
   }

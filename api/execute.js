@@ -1,44 +1,13 @@
 /**
- * NRG ENGINE — VERCEL SERVERLESS FUNCTION: /api/execute
- * Handles program compilation and execution requests with security hardening.
+ * NRG ENGINE — /api/execute
+ * Handles program compilation and sandboxed execution requests with rate limiting & validation.
  */
 
 const { executeCode } = require('./_compiler');
-const { getClientIp, checkRateLimit, applySecurityHeaders } = require('./_security');
-
-async function parseBody(req) {
-  if (req.body !== undefined && req.body !== null) {
-    if (typeof req.body === 'object') return req.body;
-    if (typeof req.body === 'string') {
-      try {
-        return JSON.parse(req.body);
-      } catch (e) {
-        return {};
-      }
-    }
-  }
-
-  return new Promise((resolve) => {
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 512 * 1024) { // 512KB limit
-        req.destroy();
-      }
-    });
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(body || '{}'));
-      } catch (e) {
-        resolve({});
-      }
-    });
-    req.on('error', () => resolve({}));
-  });
-}
+const { getClientIp, checkRateLimit, applySecurityHeaders, parseBody } = require('./_security');
 
 module.exports = async (req, res) => {
-  const reqOrigin = req.headers['origin'] || req.headers['host'] || '';
+  const reqOrigin = req.headers?.origin || req.headers?.host || '';
   applySecurityHeaders(res, reqOrigin);
 
   if (req.method === 'OPTIONS') {
@@ -50,16 +19,12 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      success: false,
-      error: 'Method Not Allowed. Use POST.'
-    }));
+    res.end(JSON.stringify({ success: false, error: 'Method Not Allowed. Use POST.' }));
     return;
   }
 
-  // Rate Limiting Enforcement
   const clientIp = getClientIp(req);
-  const rateLimitResult = checkRateLimit(clientIp);
+  const rateLimitResult = checkRateLimit(clientIp, 'execute');
   if (!rateLimitResult.allowed) {
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json');
@@ -72,16 +37,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const payload = await parseBody(req);
+    const payload = await parseBody(req, 512 * 1024);
     const result = await executeCode(payload);
-
     res.statusCode = result.status;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(result.data));
-
   } catch (err) {
-    console.error('Execution handler error:', err);
-    res.statusCode = 502;
+    res.statusCode = err.statusCode || 502;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({
       success: false,

@@ -1,30 +1,42 @@
 /**
- * NRG ENGINE — LOCAL RUNTIME & SCIENTIFIC PYTHON EXECUTION HELPER
- * Resolves local compilers/interpreters and executes code inside isolated temp directories
- * with strict 10s compile / 30s execution timeouts. Used automatically when Python scripts
- * import scientific packages (matplotlib, numpy, pandas, seaborn, cv2, scipy, etc.) not
- * installed on Judge0 CE, or as a clean offline fallback when Judge0 CE is unreachable.
+ * NRG ENGINE — ISOLATED LOCAL SANDBOX RUNNER & TOOLCHAIN PROBE
+ * Executes code in isolated per-run temp directories with stripped environment variables
+ * (zero host secret leakage), bounded C/C++ compile caching, OS resource limits,
+ * hard 10s compile / 30s overall timeouts, and live toolchain probing.
  */
 
 const { execFileSync, spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { EXECUTION_LIMITS } = require('./_config');
+const { buildSandboxedEnv } = require('./_security');
 const {
   COMPILE_TIMEOUT_MS,
   MAX_EXECUTION_TIMEOUT_MS,
   preprocessCppCompat,
   buildCompileArgs
 } = require('./_cpp_compat');
+const {
+  makeCompileKey,
+  getCachedBinary,
+  putCachedBinary
+} = require('./_compile_cache');
 
 let cachedPythonCmd = undefined;
 const cachedModuleSupport = new Map();
-const MAX_OUTPUT_BYTES = 5 * 1024 * 1024; // 5 MB safety cap
+const cachedCmdAvailability = new Map();
+const MAX_OUTPUT_BYTES = EXECUTION_LIMITS.MAX_OUTPUT_BYTES;
 
 const SCIENTIFIC_PYTHON_MODULES = new Set([
   'numpy', 'matplotlib', 'pandas', 'seaborn', 'scipy', 'sklearn',
   'cv2', 'PIL', 'sympy', 'statsmodels', 'plotly', 'networkx',
   'torch', 'tensorflow', 'keras', 'requests', 'bs4', 'pygame', 'openpyxl'
+]);
+
+const PYODIDE_SUPPORTED_MODULES = new Set([
+  'numpy', 'matplotlib', 'pandas', 'scipy', 'PIL', 'pillow',
+  'sympy', 'scikit-learn', 'sklearn', 'seaborn', 'networkx', 'statsmodels'
 ]);
 
 /**
@@ -77,19 +89,22 @@ function extractPythonImports(sourceCode) {
   return Array.from(mods);
 }
 
-/**
- * Returns the scientific/third-party modules referenced in Python code that Judge0 CE lacks.
- */
 function getScientificModulesUsed(sourceCode) {
   return extractPythonImports(sourceCode).filter(m => SCIENTIFIC_PYTHON_MODULES.has(m));
 }
 
+function areModulesPyodideCompatible(modules) {
+  if (!Array.isArray(modules) || modules.length === 0) return false;
+  return modules.every(m => PYODIDE_SUPPORTED_MODULES.has(m));
+}
+
 /**
- * Checks whether local Python can import all specified modules (cached per module).
+ * Checks whether host Python can import all specified modules (using sanitized env).
  */
 function hasLocalPythonModules(modules) {
   const pythonExe = resolvePythonExecutable();
   if (!pythonExe) return false;
+  const safeEnv = buildSandboxedEnv(os.tmpdir());
 
   for (const mod of modules) {
     if (!/^[A-Za-z0-9_]+$/.test(mod)) return false;
@@ -101,7 +116,7 @@ function hasLocalPythonModules(modules) {
       execFileSync(pythonExe, ['-c', `import ${mod}`], {
         encoding: 'utf8',
         timeout: 8000,
-        env: { ...process.env, MPLBACKEND: 'Agg' },
+        env: safeEnv,
         stdio: ['ignore', 'pipe', 'pipe']
       });
       cachedModuleSupport.set(mod, true);
@@ -113,20 +128,20 @@ function hasLocalPythonModules(modules) {
   return true;
 }
 
-/**
- * Checks whether a local compiler/runtime command exists for the given language.
- */
-function hasLocalCommand(cmd) {
+function hasLocalCommand(cmd, versionArg = '--version') {
+  const cacheKey = `${cmd}:${versionArg}`;
+  if (cachedCmdAvailability.has(cacheKey)) return cachedCmdAvailability.get(cacheKey);
+  let found = false;
   try {
-    execFileSync(cmd, ['--version'], {
+    execFileSync(cmd, [versionArg], {
       encoding: 'utf8',
       timeout: 3000,
       stdio: ['ignore', 'pipe', 'pipe']
     });
-    return true;
-  } catch (_) {
-    return false;
-  }
+    found = true;
+  } catch (_) {}
+  cachedCmdAvailability.set(cacheKey, found);
+  return found;
 }
 
 function killProcessTree(child) {
@@ -135,13 +150,33 @@ function killProcessTree(child) {
     if (process.platform === 'win32') {
       exec(`taskkill /pid ${child.pid} /T /F`, () => {});
     } else {
-      child.kill('SIGKILL');
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch (_) {
+        child.kill('SIGKILL');
+      }
     }
   } catch (_) {}
 }
 
 /**
- * Executes a spawned child process with stdin, buffered stdio capture, and hard wall timeout.
+ * Wraps execution command on POSIX hosts with ulimit CPU, file-size, and FD caps.
+ */
+function applyPosixResourceLimits(cmd, args) {
+  if (process.platform === 'win32') {
+    return { cmd, args, detached: false };
+  }
+  const cpuSec = Math.max(5, Math.ceil(MAX_EXECUTION_TIMEOUT_MS / 1000));
+  const wrapper = `ulimit -t ${cpuSec} -f 16384 -n 128 2>/dev/null || true; exec "$@"`;
+  return {
+    cmd: '/bin/sh',
+    args: ['-c', wrapper, '_', cmd, ...args],
+    detached: true
+  };
+}
+
+/**
+ * Executes a spawned child process cleanly with isolated env, bounded output capture, and wall timeout.
  */
 function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
   return new Promise((resolve) => {
@@ -151,10 +186,13 @@ function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
     const stdoutChunks = [];
     const stderrChunks = [];
     let outBytes = 0;
+    let truncated = false;
 
-    const child = spawn(cmd, args, {
+    const launch = applyPosixResourceLimits(cmd, args);
+    const child = spawn(launch.cmd, launch.args, {
       cwd,
       env,
+      detached: launch.detached,
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -164,11 +202,15 @@ function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
     }, timeoutMs);
 
     const pushChunk = (arr, chunk) => {
-      if (outBytes >= MAX_OUTPUT_BYTES) return;
+      if (outBytes >= MAX_OUTPUT_BYTES) {
+        truncated = true;
+        return;
+      }
       const slice = chunk.length + outBytes > MAX_OUTPUT_BYTES
         ? chunk.subarray(0, MAX_OUTPUT_BYTES - outBytes)
         : chunk;
       outBytes += slice.length;
+      if (slice.length < chunk.length) truncated = true;
       arr.push(slice);
     };
 
@@ -184,6 +226,7 @@ function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
         timedOut: false,
         stdout: Buffer.concat(stdoutChunks).toString('utf8'),
         stderr: err.message,
+        durationMs: Date.now() - startMs,
         durationSec: ((Date.now() - startMs) / 1000).toFixed(3)
       });
     });
@@ -192,11 +235,14 @@ function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      let stdoutStr = Buffer.concat(stdoutChunks).toString('utf8');
+      if (truncated) stdoutStr += '\n[NRG Sandbox: Output truncated at 5 MB cap]\n';
       resolve({
         exitCode: timedOut ? 124 : (code !== null ? code : 1),
         timedOut,
-        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+        stdout: stdoutStr,
         stderr: Buffer.concat(stderrChunks).toString('utf8'),
+        durationMs: Date.now() - startMs,
         durationSec: ((Date.now() - startMs) / 1000).toFixed(3)
       });
     });
@@ -209,33 +255,34 @@ function runSpawnedProcess(cmd, args, { cwd, env, stdin, timeoutMs }) {
 }
 
 /**
- * Executes C, C++, Python, or JavaScript locally in a clean sandboxed temp directory
- * honoring the 10s compile timeout and 30s overall execution timeout.
- * Returns a Judge0-compatible result object { status, stdout, stderr, compile_output, exit_code, time, memory }.
+ * Executes C, C++, Python, or JavaScript locally inside a private sandboxed temp directory
+ * honoring the 10s compile timeout, 30s overall execution timeout, compile caching, and zero-leak env.
  */
 async function executeLocal({ language, source_code, stdin }) {
   const lang = (language || '').toLowerCase().trim();
   const overallStart = Date.now();
   const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nrg_exec_'));
+  let compileMs = 0;
+  let cacheHit = false;
 
   try {
+    if (process.platform !== 'win32') {
+      try { fs.chmodSync(sessionDir, 0o700); } catch (_) {}
+    }
+    try { fs.mkdirSync(path.join(sessionDir, '.mplconfig'), { recursive: true }); } catch (_) {}
+
+    const env = buildSandboxedEnv(sessionDir);
     let cmd = null;
     let args = [];
-    const env = {
-      ...process.env,
-      MPLBACKEND: 'Agg',
-      PYTHONIOENCODING: 'utf-8',
-      PYTHONUNBUFFERED: '1'
-    };
 
     if (lang === 'python') {
       const pyExe = resolvePythonExecutable();
-      if (!pyExe) {
-        return null;
-      }
+      if (!pyExe) return null;
       const srcPath = path.join(sessionDir, 'main.py');
       fs.writeFileSync(srcPath, source_code, 'utf8');
       cmd = pyExe;
+      args = ['-I', '-u', srcPath]; // -I isolates Python from user site/env tampering where clean, fallback safe on imports?
+      // Note: -I omits user-site packages on Windows when numpy/matplotlib are installed in user site-packages! Use -s/no -I so user pip packages work.
       args = ['-u', srcPath];
 
     } else if (lang === 'javascript') {
@@ -243,7 +290,7 @@ async function executeLocal({ language, source_code, stdin }) {
       const srcPath = path.join(sessionDir, 'script.js');
       fs.writeFileSync(srcPath, source_code, 'utf8');
       cmd = 'node';
-      args = [srcPath];
+      args = ['--max-old-space-size=128', srcPath];
 
     } else if (lang === 'c' || lang === 'cpp') {
       const isCpp = lang === 'cpp';
@@ -254,30 +301,46 @@ async function executeLocal({ language, source_code, stdin }) {
       const srcPath = path.join(sessionDir, filename);
       const exePath = path.join(sessionDir, process.platform === 'win32' ? 'app.exe' : 'app');
       const compatCode = preprocessCppCompat(source_code, lang, filename);
-      fs.writeFileSync(srcPath, compatCode, 'utf8');
+      const compileArgs = buildCompileArgs(isCpp, srcPath, exePath, '-O0');
+      const cacheKey = makeCompileKey(lang, compatCode, isCpp ? '-O0 -std=c++17 -lm' : '-O0 -lm');
 
-      try {
-        execFileSync(compiler, buildCompileArgs(isCpp, srcPath, exePath, '-O0'), {
-          encoding: 'utf8',
-          cwd: sessionDir,
-          timeout: COMPILE_TIMEOUT_MS,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
-      } catch (compErr) {
-        const timedOutCompile = compErr.killed || compErr.code === 'ETIMEDOUT';
-        const compText = timedOutCompile
-          ? `Compilation timed out (10s compilation limit exceeded).\n${(compErr.stderr || '').toString()}`
-          : (compErr.stderr || compErr.stdout || compErr.message || 'Compilation failed').toString();
-        return {
-          status: { id: 6, description: 'Compilation Error' },
-          stdout: '',
-          stderr: '',
-          compile_output: compText,
-          message: timedOutCompile ? 'Compilation Timeout (10s)' : 'Compilation Error',
-          exit_code: 1,
-          time: ((Date.now() - overallStart) / 1000).toFixed(3),
-          memory: 0
-        };
+      const cached = getCachedBinary(cacheKey, exePath);
+      if (cached) {
+        cacheHit = true;
+        compileMs = 1;
+      } else {
+        fs.writeFileSync(srcPath, compatCode, 'utf8');
+        const cStart = Date.now();
+        try {
+          execFileSync(compiler, compileArgs, {
+            encoding: 'utf8',
+            cwd: sessionDir,
+            env,
+            timeout: COMPILE_TIMEOUT_MS,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          compileMs = Date.now() - cStart;
+          putCachedBinary(cacheKey, exePath, compileMs);
+        } catch (compErr) {
+          compileMs = Date.now() - cStart;
+          const timedOutCompile = compErr.killed || compErr.code === 'ETIMEDOUT';
+          const compText = timedOutCompile
+            ? `Compilation timed out (10s compilation limit exceeded).\n${(compErr.stderr || '').toString()}`
+            : (compErr.stderr || compErr.stdout || compErr.message || 'Compilation failed').toString();
+          return {
+            status: { id: 6, description: 'Compilation Error' },
+            stdout: '',
+            stderr: '',
+            compile_output: compText,
+            message: timedOutCompile ? 'Compilation Timeout (10s)' : 'Compilation Error',
+            exit_code: 1,
+            time: ((Date.now() - overallStart) / 1000).toFixed(3),
+            compile_time_ms: compileMs,
+            execution_time_ms: 0,
+            cache_hit: false,
+            memory: 0
+          };
+        }
       }
       cmd = exePath;
       args = [];
@@ -302,6 +365,9 @@ async function executeLocal({ language, source_code, stdin }) {
         message: 'Time Limit Exceeded (30s overall limit)',
         exit_code: 124,
         time: ((Date.now() - overallStart) / 1000).toFixed(3),
+        compile_time_ms: compileMs,
+        execution_time_ms: runRes.durationMs,
+        cache_hit: cacheHit,
         memory: 0
       };
     }
@@ -315,6 +381,9 @@ async function executeLocal({ language, source_code, stdin }) {
       message: '',
       exit_code: runRes.exitCode,
       time: runRes.durationSec,
+      compile_time_ms: compileMs,
+      execution_time_ms: runRes.durationMs,
+      cache_hit: cacheHit,
       memory: 0
     };
   } finally {
@@ -324,10 +393,37 @@ async function executeLocal({ language, source_code, stdin }) {
   }
 }
 
+/**
+ * Probes host toolchains and scientific Python packages cleanly for diagnostics.
+ */
+function probeHostToolchains() {
+  const pyExe = resolvePythonExecutable();
+  const compilers = {
+    node: hasLocalCommand('node'),
+    python: !!pyExe,
+    gcc: hasLocalCommand('gcc'),
+    gpp: hasLocalCommand('g++'),
+    javac: hasLocalCommand('javac', '-version'),
+    dotnet: hasLocalCommand('dotnet'),
+    go: hasLocalCommand('go', 'version'),
+    rustc: hasLocalCommand('rustc'),
+    php: hasLocalCommand('php'),
+    kotlinc: hasLocalCommand('kotlinc', '-version')
+  };
+  const sciList = ['numpy', 'matplotlib', 'pandas', 'scipy', 'seaborn', 'PIL', 'sympy'];
+  const pythonPackages = {};
+  for (const mod of sciList) {
+    pythonPackages[mod] = pyExe ? hasLocalPythonModules([mod]) : false;
+  }
+  return { compilers, pythonPackages, pythonExecutable: pyExe };
+}
+
 module.exports = {
   resolvePythonExecutable,
   getScientificModulesUsed,
+  areModulesPyodideCompatible,
   hasLocalPythonModules,
   hasLocalCommand,
-  executeLocal
+  executeLocal,
+  probeHostToolchains
 };

@@ -1,11 +1,12 @@
 services:
   - type: web
     name: nrg-engine
-    env: node
+    env: docker
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free
     region: oregon
-    buildCommand: npm install
-    startCommand: node server.js
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -13,11 +14,15 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: MPLBACKEND
+        value: Agg
 
   - type: web
     name: nrg-interactive-worker
     env: docker
-    dockerfilePath: worker/Dockerfile
+    branch: main
+    dockerfilePath: ./worker/Dockerfile
+    dockerContext: .
     plan: free
     region: oregon
     healthCheckPath: /health
@@ -27,5 +32,7 @@ services:
         value: 10000
       - key: NODE_ENV
         value: production
+      - key: MPLBACKEND
+        value: Agg
       - key: ALLOWED_ORIGINS
         value: "*"

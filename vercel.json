@@ -4,7 +4,11 @@
   "cleanUrls": true,
   "outputDirectory": ".",
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/api/ai/assist", "destination": "/api/ai-assist" },
+    { "source": "/api/ai/chat", "destination": "/api/ai-assist?mode=chat" },
+    { "source": "/api/ai/status", "destination": "/api/ai-assist?mode=status" },
+    { "source": "/api/ai/test", "destination": "/api/ai-assist?mode=test" }
   ],
   "functions": {
     "api/*.js": {

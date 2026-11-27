@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const branch = process.env.VERCEL_GIT_COMMIT_REF || 'main';
+  const branch = process.env.VERCEL_GIT_COMMIT_REF || process.env.RENDER_GIT_BRANCH || 'main';
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ available: true, branch }));

@@ -1,4 +1,4 @@
-// NRG ENGINE 2.0 — HTML5 Canvas Python Turtle Engine
+// NRG ENGINE — HTML5 Canvas Python Turtle Engine
 class NRGTurtleEngine {
       constructor(canvasId, containerId) {
         this.canvas = document.getElementById(canvasId);

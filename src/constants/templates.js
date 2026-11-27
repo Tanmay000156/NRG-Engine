@@ -1,4 +1,4 @@
-// NRG ENGINE 2.0 — Starter Templates Catalog
+// NRG ENGINE — Starter Templates Catalog (NRG CoreX Studios)
 export const TEMPLATES_CATALOG = [
       { id: 't1', title: 'C Linked List & Binary Search Tree', lang: 'c', cat: 'systems', desc: 'Complete pointer-based dynamic memory data structures with search & traversal routines.', code: '#include <stdio.h>\n#include <stdlib.h>\n\ntypedef struct Node {\n    int val;\n    struct Node* next;\n} Node;\n\nint main() {\n    Node* head = (Node*)malloc(sizeof(Node));\n    head->val = 42;\n    head->next = NULL;\n    printf("Linked list node initialized: %d\\n", head->val);\n    free(head);\n    return 0;\n}' },
       { id: 't2', title: 'C++ Modern OOP Framework', lang: 'cpp', cat: 'systems', desc: 'Object-oriented architecture with smart pointers, vectors, and polymorphic methods.', code: '#include <iostream>\n#include <vector>\n#include <memory>\n\nclass Engine {\npublic:\n    virtual void boot() { std::cout << "NRG Engine C++ Core Online!\\n"; }\n};\n\nint main() {\n    auto engine = std::make_unique<Engine>();\n    engine->boot();\n    return 0;\n}' },

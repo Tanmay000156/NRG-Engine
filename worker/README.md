@@ -63,9 +63,9 @@ It runs outside Vercel Serverless Functions to provide **persistent WebSockets, 
 5. Your WebSocket URL will be: `wss://nrg-worker.up.railway.app/ws`.
 
 ### Option C: Docker / Self-Hosted VPS
+Run from the repository root (`.`) so shared sandbox and C/C++ compatibility helpers (`api/`) are included cleanly:
 ```bash
-cd worker
-docker build -t nrg-interactive-worker .
+docker build -f worker/Dockerfile -t nrg-interactive-worker .
 docker run -d -p 3001:3001 --name nrg-worker --restart always nrg-interactive-worker
 ```
 

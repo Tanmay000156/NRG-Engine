@@ -1,46 +1,49 @@
-# NRG ENGINE 2.0 — PERSISTENT EXECUTION WORKER CONTAINER
-# Complete multi-compiler sandbox environment: Node.js, GCC, G++, Python 3
+# NRG ENGINE — PERSISTENT EXECUTION WORKER CONTAINER (NRG CoreX Studios)
+# Build context: repository root (`.`), matching render.yaml, worker/render.yaml, worker/railway.json, and docker-compose.yml.
 
 FROM node:20-bookworm-slim
 
-# Install C, C++, Python, Make, procps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     g++ \
     python3 \
-    python3-pip \
+    python3-numpy \
+    python3-matplotlib \
+    python3-pandas \
+    python3-scipy \
+    python3-pil \
+    python3-seaborn \
+    python3-sympy \
     procps \
-    wget \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
-# Alias python to python3
-RUN ln -sf /usr/bin/python3 /usr/bin/python
-
-# Create working directory
 WORKDIR /app
 
-# Copy dependency definition and install
-COPY package.json ./
-RUN npm install --production
+COPY requirements.txt ./
+RUN python3 -c "import numpy, matplotlib, pandas, scipy, seaborn, PIL, sympy"
 
-# Copy worker server
-COPY worker.js ./
+COPY api/ ./api/
 
-# Create non-privileged runner user and isolated session directory
+WORKDIR /app/worker
+COPY worker/package.json worker/package-lock.json ./
+RUN npm ci --omit=dev
+COPY worker/worker.js ./
+
 RUN useradd -m -u 1001 nrgworker && \
-    mkdir -p /tmp/nrg_worker_sessions && \
+    mkdir -p /tmp/nrg_worker_sessions /app/.nrg_data && \
     chown -R nrgworker:nrgworker /tmp/nrg_worker_sessions /app
 
 USER nrgworker
 
 ENV PORT=3001
 ENV NODE_ENV=production
+ENV MPLBACKEND=Agg
 
 EXPOSE 3001
 
 HEALTHCHECK --interval=20s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost:${PORT:-3001}/health || exit 1
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "worker.js"]

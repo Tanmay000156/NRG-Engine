@@ -1,5 +1,5 @@
 /**
- * NRG ENGINE 2.0 — PROJECT & WORKSPACE STORAGE SERVICE
+ * NRG ENGINE — PROJECT & WORKSPACE STORAGE SERVICE
  * Multi-layer persistence using IndexedDB with LocalStorage fallback & zero-data-loss migration.
  */
 

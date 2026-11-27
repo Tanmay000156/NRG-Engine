@@ -1,13 +1,21 @@
 # Dependencies
 node_modules/
-package-lock.json
+worker/node_modules/
+
+# Python virtual environments & caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
 
 # Build output & legacy backup
 dist/
 index.legacy.html
 
-# Environment and secrets
+# Environment and secrets (preserve .env.example template)
 .env
+.env*
+!.env.example
 *.local
 
 # Logs
@@ -22,5 +30,10 @@ Thumbs.db
 temp_*
 *.tmp
 
-.vercel
-.env*
+# Local persistence & session cache
+.nrg_data/
+
+# Deployment & Playwright CLI / Agent Skill Asset Caches (keep AGENTS.md, DESIGN.md, skills-lock.json tracked)
+.vercel/
+.playwright-cli/
+.agents/

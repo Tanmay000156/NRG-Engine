@@ -51,7 +51,10 @@ async function predictCode({ language, prefix, suffix = '', tabSize = 4, trigger
     return { suggestion: '', multiline: false, source: 'none', confidence: 0 };
   }
 
-  const cacheKey = `${lang}|${tabSize}|${aiConfig?.provider || 'env'}|${safePrefix.slice(-600)}|${currentLineAfter}`;
+  const aiSig = aiConfig && typeof aiConfig === 'object'
+    ? `${aiConfig.provider || 'auto'}:${aiConfig.model || ''}:${aiConfig.endpoint || ''}:${aiConfig.apiKey ? String(aiConfig.apiKey).slice(-6) : 'nokey'}`
+    : 'auto';
+  const cacheKey = `${lang}|${tabSize}|${aiSig}|${safePrefix.slice(-600)}|${currentLineAfter}`;
   const cached = readCache(cacheKey);
   if (cached) return { ...cached, cached: true };
 
@@ -63,18 +66,52 @@ async function predictCode({ language, prefix, suffix = '', tabSize = 4, trigger
     aiConfig: aiConfig && typeof aiConfig === 'object' ? aiConfig : {},
     signal
   });
-  if (llmRes.suggestion) {
+
+  if (llmRes.configured) {
+    if (llmRes.error) {
+      return {
+        suggestion: '',
+        multiline: false,
+        source: 'error',
+        llmConfigured: true,
+        provider: llmRes.provider,
+        model: llmRes.model,
+        error: llmRes.error,
+        errorCode: llmRes.errorCode,
+        statusCode: llmRes.statusCode,
+        rateLimited: llmRes.statusCode === 429
+      };
+    }
     const out = {
-      suggestion: llmRes.suggestion,
-      multiline: llmRes.suggestion.includes('\n'),
-      source: llmRes.provider || 'llm',
-      confidence: 0.93
+      suggestion: llmRes.suggestion || '',
+      multiline: !!(llmRes.suggestion && llmRes.suggestion.includes('\n')),
+      source: llmRes.source || `${llmRes.provider}-llm`,
+      provider: llmRes.provider,
+      model: llmRes.model,
+      llmConfigured: true,
+      confidence: llmRes.suggestion ? 0.94 : 0
     };
-    writeCache(cacheKey, out);
+    if (out.suggestion) writeCache(cacheKey, out);
     return out;
   }
 
-  // 2. Multi-Line Context-Aware Structural & Symbol-Table Predictor (zero-latency fallback)
+  // If user explicitly picked a provider other than 'auto' without credentials, report missing config honestly
+  const reqProv = String(aiConfig?.provider || 'auto').toLowerCase();
+  if (reqProv !== 'auto' && reqProv !== 'default' && reqProv !== 'env') {
+    return {
+      suggestion: '',
+      multiline: false,
+      source: 'unconfigured',
+      llmConfigured: false,
+      requiresAiConfig: true,
+      provider: reqProv,
+      error: llmRes.error,
+      errorCode: llmRes.errorCode || 'NO_AI_CREDENTIALS',
+      missingConfig: llmRes.missingConfig
+    };
+  }
+
+  // 2. When 'auto' has no LLM credentials, expose local AST symbol context clearly labeled (not LLM)
   const ctxSuggestion = analyzeAndPredictContext({
     language: lang,
     prefix: safePrefix,
@@ -87,146 +124,67 @@ async function predictCode({ language, prefix, suffix = '', tabSize = 4, trigger
   const out = {
     suggestion: ctxSuggestion || '',
     multiline: !!(ctxSuggestion && ctxSuggestion.includes('\n')),
-    source: ctxSuggestion ? 'context-ast' : 'none',
-    confidence: ctxSuggestion ? 0.84 : 0,
-    ...(llmRes.rateLimited ? { rateLimited: true, fallbackReason: 'rate_limited' } : {})
+    source: ctxSuggestion ? 'local-context-ast' : 'none',
+    llmConfigured: false,
+    requiresAiConfig: true,
+    provider: 'none',
+    warning: llmRes.error,
+    missingConfig: llmRes.missingConfig,
+    confidence: ctxSuggestion ? 0.84 : 0
   };
   writeCache(cacheKey, out);
   return out;
 }
 
 async function tryExternalLlmPredict({ language, prefix, suffix, aiConfig = {}, signal }) {
-  const timeoutSignal = AbortSignal.timeout(PREDICTOR_LIMITS.LLM_TIMEOUT_MS);
-  const combinedSignal = signal && AbortSignal.any
-    ? AbortSignal.any([signal, timeoutSignal])
-    : timeoutSignal;
+  const { resolveAiConfig, invokeChatCompletion } = require('./_ai_provider');
+  const resolved = resolveAiConfig(aiConfig, 'predict');
+  if (!resolved.configured) {
+    return {
+      configured: false,
+      error: resolved.error,
+      errorCode: resolved.errorCode,
+      missingConfig: resolved.missingConfig
+    };
+  }
 
   const systemPrompt =
     `You are an inline code autocomplete engine for ${language}. ` +
     `Return ONLY the exact missing code continuation starting immediately at <CURSOR> (1-5 lines max, supporting multiline blocks when unfinished, no markdown fences, no prose, no repeating PREFIX).`;
   const userPrompt = `PREFIX:\n${prefix.slice(-3600)}\n<CURSOR>\nSUFFIX:\n${suffix.slice(0, 900)}`;
 
-  const requestedProvider = String(aiConfig.provider || 'auto').toLowerCase();
-  const userKey = typeof aiConfig.apiKey === 'string' ? aiConfig.apiKey.trim() : '';
-  const userEndpoint = typeof aiConfig.endpoint === 'string' ? aiConfig.endpoint.trim() : '';
-  const userModel = typeof aiConfig.model === 'string' ? aiConfig.model.trim() : '';
-  let rateLimited = false;
-
-  // A. OpenAI / Groq / Custom OpenAI-Compatible Chat Completions
-  const openaiKey = userKey || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
-  if (openaiKey && requestedProvider !== 'gemini' && requestedProvider !== 'ollama' && requestedProvider !== 'anthropic') {
-    const isGroq = requestedProvider === 'groq' || (!userEndpoint && !process.env.OPENAI_BASE_URL && !!process.env.GROQ_API_KEY && !userKey);
-    const base = (userEndpoint || (isGroq ? 'https://api.groq.com/openai/v1' : (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'))).replace(/\/+$/, '');
-    const url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`;
-    const model = userModel || process.env.NRG_AI_MODEL || (isGroq ? 'llama-3.1-8b-instant' : 'gpt-4o-mini');
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiKey}`
-        },
-        signal: combinedSignal,
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.1,
-          max_tokens: 160
-        })
-      });
-      if (res.status === 429) rateLimited = true;
-      else if (res.ok) {
-        const json = await res.json();
-        const cleaned = sanitizeCompletion(json?.choices?.[0]?.message?.content || '');
-        if (cleaned) return { suggestion: cleaned, provider: isGroq ? 'groq-llm' : 'openai-llm' };
-      }
-    } catch (_) {}
+  try {
+    const res = await invokeChatCompletion({
+      resolved,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+      maxTokens: 160,
+      timeoutMs: PREDICTOR_LIMITS.LLM_TIMEOUT_MS,
+      stream: false
+    });
+    if (signal?.aborted) return { configured: true, provider: resolved.provider, suggestion: '' };
+    const cleaned = sanitizeCompletion(res.text || '');
+    return {
+      configured: true,
+      provider: resolved.provider,
+      model: res.model || resolved.model,
+      source: `${resolved.provider}-llm`,
+      suggestion: cleaned
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      provider: resolved.provider,
+      model: resolved.model,
+      suggestion: '',
+      error: err.message,
+      errorCode: err.errorCode || 'AI_PREDICT_FAILED',
+      statusCode: err.statusCode || 502
+    };
   }
-
-  // B. Google Gemini
-  const geminiKey = (requestedProvider === 'gemini' ? userKey : '') || process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    const model = userModel || process.env.NRG_GEMINI_MODEL || 'gemini-2.0-flash';
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: combinedSignal,
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 160 }
-          })
-        }
-      );
-      if (res.status === 429) rateLimited = true;
-      else if (res.ok) {
-        const json = await res.json();
-        const cleaned = sanitizeCompletion(json?.candidates?.[0]?.content?.parts?.[0]?.text || '');
-        if (cleaned) return { suggestion: cleaned, provider: 'gemini-llm' };
-      }
-    } catch (_) {}
-  }
-
-  // C. Anthropic Claude Messages API
-  const anthropicKey = (requestedProvider === 'anthropic' ? userKey : '') || process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) {
-    const model = userModel || process.env.NRG_ANTHROPIC_MODEL || 'claude-3-5-haiku-latest';
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01'
-        },
-        signal: combinedSignal,
-        body: JSON.stringify({
-          model,
-          max_tokens: 160,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
-      });
-      if (res.status === 429) rateLimited = true;
-      else if (res.ok) {
-        const json = await res.json();
-        const cleaned = sanitizeCompletion(json?.content?.[0]?.text || '');
-        if (cleaned) return { suggestion: cleaned, provider: 'anthropic-llm' };
-      }
-    } catch (_) {}
-  }
-
-  // D. Local Ollama Instance (when OLLAMA_HOST or requestedProvider === 'ollama' is configured)
-  const ollamaHost = (requestedProvider === 'ollama' ? (userEndpoint || 'http://127.0.0.1:11434') : process.env.OLLAMA_HOST || '').replace(/\/+$/, '');
-  if (ollamaHost) {
-    const model = userModel || process.env.OLLAMA_MODEL || 'qwen2.5-coder:3b';
-    try {
-      const res = await fetch(`${ollamaHost}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: combinedSignal,
-        body: JSON.stringify({
-          model,
-          system: systemPrompt,
-          prompt: userPrompt,
-          stream: false,
-          options: { temperature: 0.1, num_predict: 140 }
-        })
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const cleaned = sanitizeCompletion(json?.response || '');
-        if (cleaned) return { suggestion: cleaned, provider: 'ollama-llm' };
-      }
-    } catch (_) {}
-  }
-
-  return { suggestion: '', rateLimited };
 }
 
 function sanitizeCompletion(raw) {

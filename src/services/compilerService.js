@@ -1,5 +1,5 @@
 /**
- * NRG ENGINE 2.0 — COMPILER & EXECUTION SERVICE
+ * NRG ENGINE — COMPILER & EXECUTION SERVICE
  * Handles communication with the isolated Judge0 backend & universal graphics stream.
  */
 

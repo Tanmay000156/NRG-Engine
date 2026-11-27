@@ -1,4 +1,4 @@
-// NRG ENGINE 2.0 — Supported Languages Catalog
+// NRG ENGINE — Supported Languages Catalog (NRG CoreX Studios)
 export const LANGUAGES = {
       c: {
         id: 'c',

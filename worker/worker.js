@@ -1,7 +1,8 @@
 /**
- * NRG ENGINE 2.0 — DEDICATED PERSISTENT EXECUTION WORKER
+ * NRG ENGINE — DEDICATED PERSISTENT EXECUTION WORKER
  * Independent microservice for live interactive STDIN/STDOUT terminal sessions.
- * Supports: C (GCC unbuffered), C++ (G++ unbuffered), Python 3 (-u unbuffered), Node.js
+ * Enforces stripped sandboxed environment variables, per-session temp directory isolation,
+ * fork-bomb prechecks, 10s compile timeout, and 30s execution limits.
  */
 
 const http = require('http');
@@ -15,10 +16,34 @@ let cppCompat = null;
 try { cppCompat = require('../api/_cpp_compat'); } catch (_) {}
 let localRunner = null;
 try { localRunner = require('../api/_local_runner'); } catch (_) {}
+let secMod = null;
+try { secMod = require('../api/_security'); } catch (_) {}
 
 const COMPILE_TIMEOUT_MS = cppCompat ? cppCompat.COMPILE_TIMEOUT_MS : 10000;
 const MAX_EXECUTION_TIMEOUT_MS = cppCompat ? cppCompat.MAX_EXECUTION_TIMEOUT_MS : 30000;
 const INACTIVITY_TIMEOUT_MS = cppCompat ? cppCompat.INACTIVITY_TIMEOUT_MS : 30000;
+const MAX_SESSIONS = 25;
+
+function buildSafeWorkerEnv(sessionDir) {
+  if (secMod && typeof secMod.buildSandboxedEnv === 'function') {
+    return secMod.buildSandboxedEnv(sessionDir);
+  }
+  const env = {
+    PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+    HOME: sessionDir,
+    TMPDIR: sessionDir,
+    TEMP: sessionDir,
+    TMP: sessionDir,
+    MPLCONFIGDIR: path.join(sessionDir, '.mplconfig'),
+    MPLBACKEND: 'Agg',
+    PYTHONIOENCODING: 'utf-8',
+    PYTHONUNBUFFERED: '1',
+    NODE_NO_WARNINGS: '1',
+    LANG: 'C.UTF-8'
+  };
+  if (process.platform === 'win32' && process.env.SystemRoot) env.SystemRoot = process.env.SystemRoot;
+  return env;
+}
 
 function resolvePythonBin() {
   if (localRunner && typeof localRunner.resolvePythonExecutable === 'function') {
@@ -40,21 +65,16 @@ const AUTH_TOKEN = process.env.WORKER_AUTH_TOKEN || null;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '*';
 const BASE_SESSIONS_DIR = path.join(os.tmpdir(), 'nrg_worker_sessions');
 
-// Ensure base temp directory exists
 try {
   if (!fs.existsSync(BASE_SESSIONS_DIR)) {
-    fs.mkdirSync(BASE_SESSIONS_DIR, { recursive: true });
+    fs.mkdirSync(BASE_SESSIONS_DIR, { recursive: true, mode: 0o700 });
   }
 } catch (e) {
   console.error('[WORKER] Failed to create sessions dir:', e.message);
 }
 
-// Active Sessions map: sessionId -> Session
 const activeSessions = new Map();
 
-/**
- * Clean up a session and remove its isolated directory
- */
 function cleanupSession(sessionId) {
   const session = activeSessions.get(sessionId);
   if (!session) return;
@@ -62,77 +82,51 @@ function cleanupSession(sessionId) {
   if (session.timeoutTimer) clearTimeout(session.timeoutTimer);
   if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
 
-  // Terminate process if still active
   if (session.child && !session.child.killed && session.child.exitCode === null) {
     try {
       if (process.platform === 'win32') {
         exec(`taskkill /pid ${session.child.pid} /T /F`, () => {});
       } else {
-        session.child.kill('SIGKILL');
+        try { process.kill(-session.child.pid, 'SIGKILL'); } catch (_) { session.child.kill('SIGKILL'); }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
-  // Close any connected WebSocket clients
   if (session.wsClients) {
-    session.wsClients.forEach(ws => {
-      try { ws.close(); } catch (e) {}
-    });
+    session.wsClients.forEach(ws => { try { ws.close(); } catch (_) {} });
   }
-
-  // Close SSE subscribers
   if (session.subscribers) {
-    session.subscribers.forEach(res => {
-      try { res.end(); } catch (e) {}
-    });
+    session.subscribers.forEach(res => { try { res.end(); } catch (_) {} });
   }
 
-  // Delete session directory and all its files
   setTimeout(() => {
     if (session.sessionDir && fs.existsSync(session.sessionDir)) {
-      try {
-        fs.rmSync(session.sessionDir, { recursive: true, force: true });
-      } catch (e) {}
+      try { fs.rmSync(session.sessionDir, { recursive: true, force: true }); } catch (_) {}
     }
   }, 400);
 
   activeSessions.delete(sessionId);
-  console.log(`[WORKER] Session ${sessionId} cleaned up. Active sessions: ${activeSessions.size}`);
 }
 
-/**
- * Broadcast event to all WebSocket and SSE listeners of a session
- */
 function broadcast(sessionId, eventObj) {
   const session = activeSessions.get(sessionId);
   if (!session) return;
-
   session.history.push(eventObj);
 
-  // Send to WebSockets
   if (session.wsClients && session.wsClients.size > 0) {
     const wsPayload = JSON.stringify(eventObj);
     session.wsClients.forEach(ws => {
-      try {
-        if (ws.readyState === 1 /* OPEN */) {
-          ws.send(wsPayload);
-        }
-      } catch (e) {}
+      try { if (ws.readyState === 1) ws.send(wsPayload); } catch (_) {}
     });
   }
-
-  // Send to SSE subscribers
   if (session.subscribers && session.subscribers.size > 0) {
     const ssePayload = `data: ${JSON.stringify(eventObj)}\n\n`;
     session.subscribers.forEach(res => {
-      try { res.write(ssePayload); } catch (e) {}
+      try { res.write(ssePayload); } catch (_) {}
     });
   }
 }
 
-/**
- * Start a new persistent execution session
- */
 async function startSession({ language, source_code, code }) {
   const rawSource = typeof source_code === 'string' ? source_code : code;
   if (typeof rawSource !== 'string') {
@@ -141,13 +135,22 @@ async function startSession({ language, source_code, code }) {
   if (rawSource.length > 262144) {
     return { success: false, status: { id: 14, description: 'Payload Too Large' }, error: 'Source code exceeds 256 KB limit.' };
   }
+  if (activeSessions.size >= MAX_SESSIONS) {
+    return { success: false, status: { id: 14, description: 'Worker Busy' }, error: 'Worker concurrency limit reached. Retry shortly.' };
+  }
+
+  const lang = (language || 'c').toLowerCase().trim();
+  if (secMod && typeof secMod.checkStaticResourceHazards === 'function') {
+    const h = secMod.checkStaticResourceHazards(lang, rawSource);
+    if (!h.safe) return { success: false, error: h.reason };
+  }
 
   const sessionId = 'nrg_sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const lang = (language || 'c').toLowerCase().trim();
   const sessionDir = path.join(BASE_SESSIONS_DIR, sessionId);
 
   try {
-    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(path.join(sessionDir, '.mplconfig'), { recursive: true });
   } catch (err) {
     return { success: false, error: 'Could not create session directory: ' + err.message };
   }
@@ -166,39 +169,24 @@ async function startSession({ language, source_code, code }) {
   };
 
   activeSessions.set(sessionId, session);
-  console.log(`[WORKER] Starting session ${sessionId} (${lang}). Total active: ${activeSessions.size}`);
 
-  // Overall execution timeout (max 30 seconds)
   session.timeoutTimer = setTimeout(() => {
-    broadcast(sessionId, {
-      type: 'stderr',
-      data: '\n[NRG Worker] Execution time limit exceeded (30s).\n'
-    });
-    broadcast(sessionId, {
-      type: 'exit',
-      code: 124,
-      status: 'Time Limit Exceeded'
-    });
+    broadcast(sessionId, { type: 'stderr', data: '\n[NRG Worker] Execution time limit exceeded (30s).\n' });
+    broadcast(sessionId, { type: 'exit', code: 124, status: 'Time Limit Exceeded' });
     cleanupSession(sessionId);
   }, MAX_EXECUTION_TIMEOUT_MS);
 
-  // Inactivity timeout (waiting for user stdin for 30s)
   function touchInactivity() {
     if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
     session.inactivityTimer = setTimeout(() => {
-      broadcast(sessionId, {
-        type: 'stderr',
-        data: '\n[NRG Worker] Input timeout (30s inactivity).\n'
-      });
-      broadcast(sessionId, {
-        type: 'exit',
-        code: 125,
-        status: 'Inactivity Timeout'
-      });
+      broadcast(sessionId, { type: 'stderr', data: '\n[NRG Worker] Input timeout (30s inactivity).\n' });
+      broadcast(sessionId, { type: 'exit', code: 125, status: 'Inactivity Timeout' });
       cleanupSession(sessionId);
     }, INACTIVITY_TIMEOUT_MS);
   }
   touchInactivity();
+
+  const sandboxEnv = buildSafeWorkerEnv(sessionDir);
 
   try {
     if (lang === 'c' || lang === 'cpp') {
@@ -220,17 +208,16 @@ async function startSession({ language, source_code, code }) {
       }
 
       fs.writeFileSync(srcFile, finalSource, 'utf8');
-
       const compileArgs = cppCompat && typeof cppCompat.buildCompileArgs === 'function'
         ? cppCompat.buildCompileArgs(isCpp, srcFile, exeFile, '-O0')
         : (isCpp ? ['-O0', '-std=c++17', srcFile, '-o', exeFile, '-lm'] : ['-O0', srcFile, '-o', exeFile, '-lm']);
 
-      // Compile source with strict 10s compile timeout
       try {
         execFileSync(compiler, compileArgs, {
           encoding: 'utf8',
           timeout: COMPILE_TIMEOUT_MS,
           cwd: sessionDir,
+          env: sandboxEnv,
           stdio: ['pipe', 'pipe', 'pipe']
         });
       } catch (compileErr) {
@@ -246,37 +233,32 @@ async function startSession({ language, source_code, code }) {
         };
       }
 
-      // Spawn persistent executable
       session.child = spawn(exeFile, [], {
         cwd: sessionDir,
+        env: sandboxEnv,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe']
       });
-
     } else if (lang === 'python') {
       const srcFile = path.join(sessionDir, 'main.py');
       fs.writeFileSync(srcFile, rawSource, 'utf8');
 
-      // Python -u guarantees unbuffered stdin/stdout/stderr & headless matplotlib backend
       session.child = spawn(resolvePythonBin(), ['-u', srcFile], {
         cwd: sessionDir,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          MPLBACKEND: 'Agg',
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUNBUFFERED: '1'
-        }
+        env: sandboxEnv
       });
-
     } else if (lang === 'javascript') {
       const srcFile = path.join(sessionDir, 'main.js');
       fs.writeFileSync(srcFile, rawSource, 'utf8');
 
-      session.child = spawn('node', [srcFile], {
+      session.child = spawn('node', ['--max-old-space-size=128', srcFile], {
         cwd: sessionDir,
+        env: sandboxEnv,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe']
       });
-
     } else {
       cleanupSession(sessionId);
       return {
@@ -286,30 +268,17 @@ async function startSession({ language, source_code, code }) {
     }
 
     const child = session.child;
-
     child.stdout.on('data', (chunk) => {
       touchInactivity();
-      broadcast(sessionId, {
-        type: 'stdout',
-        data: chunk.toString()
-      });
+      broadcast(sessionId, { type: 'stdout', data: chunk.toString() });
     });
-
     child.stderr.on('data', (chunk) => {
       touchInactivity();
-      broadcast(sessionId, {
-        type: 'stderr',
-        data: chunk.toString()
-      });
+      broadcast(sessionId, { type: 'stderr', data: chunk.toString() });
     });
-
     child.on('error', (err) => {
-      broadcast(sessionId, {
-        type: 'stderr',
-        data: `\n[Process Error]: ${err.message}\n`
-      });
+      broadcast(sessionId, { type: 'stderr', data: `\n[Process Error]: ${err.message}\n` });
     });
-
     child.on('close', (code, signal) => {
       const durationSec = ((Date.now() - session.startedAt) / 1000).toFixed(3);
       broadcast(sessionId, {
@@ -321,29 +290,18 @@ async function startSession({ language, source_code, code }) {
       cleanupSession(sessionId);
     });
 
-    return {
-      success: true,
-      sessionId
-    };
-
+    return { success: true, sessionId };
   } catch (err) {
     cleanupSession(sessionId);
-    return {
-      success: false,
-      error: `Failed to launch execution process: ${err.message}`
-    };
+    return { success: false, error: `Failed to launch execution process: ${err.message}` };
   }
 }
 
-/**
- * Send user stdin string into running subprocess
- */
 function sendInput(sessionId, input) {
   const session = activeSessions.get(sessionId);
   if (!session || !session.child || session.child.exitCode !== null) {
     return { success: false, error: 'Session is not active or has already terminated.' };
   }
-
   try {
     const formatted = input.endsWith('\n') ? input : (input + '\n');
     session.child.stdin.write(formatted);
@@ -353,40 +311,22 @@ function sendInput(sessionId, input) {
   }
 }
 
-/**
- * Stop and terminate a running session immediately
- */
 function stopSession(sessionId) {
   const session = activeSessions.get(sessionId);
-  if (!session) {
-    return { success: true, message: 'Session already terminated' };
-  }
-
-  broadcast(sessionId, {
-    type: 'stderr',
-    data: '\n[NRG Worker] Execution terminated by user.\n'
-  });
-  broadcast(sessionId, {
-    type: 'exit',
-    code: 143,
-    status: 'Terminated by User'
-  });
-
+  if (!session) return { success: true, message: 'Session already terminated' };
+  broadcast(sessionId, { type: 'stderr', data: '\n[NRG Worker] Execution terminated by user.\n' });
+  broadcast(sessionId, { type: 'exit', code: 143, status: 'Terminated by User' });
   cleanupSession(sessionId);
   return { success: true };
 }
 
-// ============================================================================
-// HTTP SERVER & WEBSOCKET DISPATCHER
-// ============================================================================
-
 const server = http.createServer((req, res) => {
-  // CORS Headers
   const origin = req.headers.origin || '*';
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS === '*' ? origin : ALLOWED_ORIGINS);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -397,7 +337,6 @@ const server = http.createServer((req, res) => {
   const parsed = new URL(req.url, 'http://localhost');
   const pathname = parsed.pathname;
 
-  // Optional Authentication Check
   if (AUTH_TOKEN) {
     const headerAuth = req.headers['authorization'];
     const queryToken = parsed.searchParams.get('token');
@@ -409,13 +348,12 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // 1. Healthcheck Endpoint
   if (pathname === '/health' || pathname === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
       service: 'nrg-interactive-worker',
-      version: '2.0.0',
+      version: '1.0.0',
       active_sessions: activeSessions.size,
       uptime_seconds: Math.floor(process.uptime()),
       timestamp: new Date().toISOString()
@@ -423,7 +361,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. Worker Status Endpoint
   if (pathname === '/status' || pathname === '/api/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
@@ -440,11 +377,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. Greeting / Root
   if (pathname === '/' || pathname === '') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      name: 'NRG Engine 2.0 Persistent Execution Worker',
+      name: 'NRG Engine Persistent Execution Worker',
+      studio: 'NRG CoreX Studios',
       status: 'online',
       websocket_endpoints: ['/ws', '/api/interactive/ws'],
       healthcheck: '/health',
@@ -453,54 +390,56 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 4. HTTP Session Endpoints (Dual Mode Support)
-  if (req.method === 'POST' && (pathname === '/api/interactive/start' || pathname === '/start')) {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', async () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = await startSession(payload);
-        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
+  const readJson = () => new Promise((resolve, reject) => {
+    let bytes = 0;
+    const chunks = [];
+    req.on('data', chunk => {
+      bytes += chunk.length;
+      if (bytes > 512 * 1024) {
+        try { req.destroy(); } catch (_) {}
+        reject(new Error('Payload too large'));
+        return;
       }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); } catch (e) { reject(e); }
+    });
+    req.on('error', reject);
+  });
+
+  if (req.method === 'POST' && (pathname === '/api/interactive/start' || pathname === '/start')) {
+    readJson().then(async payload => {
+      const result = await startSession(payload);
+      res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch(err => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
     });
     return;
   }
 
   if (req.method === 'POST' && (pathname === '/api/interactive/input' || pathname === '/input')) {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = sendInput(payload.sessionId, payload.input || '');
-        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
-      }
+    readJson().then(payload => {
+      const result = sendInput(payload.sessionId, payload.input || '');
+      res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch(err => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
     });
     return;
   }
 
   if (req.method === 'POST' && (pathname === '/api/interactive/stop' || pathname === '/stop')) {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const result = stopSession(payload.sessionId);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: err.message }));
-      }
+    readJson().then(payload => {
+      const result = stopSession(payload.sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    }).catch(err => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
     });
     return;
   }
@@ -509,24 +448,15 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Endpoint not found' }));
 });
 
-// WebSocket Server attached to HTTP server
 const wss = new WebSocketServer({ noServer: true });
-
 server.on('upgrade', (request, socket, head) => {
   const parsed = new URL(request.url, 'http://localhost');
-  const pathname = parsed.pathname;
-
-  if (pathname === '/ws' || pathname === '/api/interactive/ws') {
-    // Check optional token
-    if (AUTH_TOKEN) {
-      const queryToken = parsed.searchParams.get('token');
-      if (queryToken !== AUTH_TOKEN) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
+  if (parsed.pathname === '/ws' || parsed.pathname === '/api/interactive/ws') {
+    if (AUTH_TOKEN && parsed.searchParams.get('token') !== AUTH_TOKEN) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
     }
-
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request, Object.fromEntries(parsed.searchParams));
     });
@@ -535,10 +465,8 @@ server.on('upgrade', (request, socket, head) => {
   }
 });
 
-wss.on('connection', (ws, request, query) => {
+wss.on('connection', (ws, _request, query) => {
   let currentSessionId = query?.sessionId || null;
-
-  // Immediately attach to existing session if requested
   if (currentSessionId && activeSessions.has(currentSessionId)) {
     const session = activeSessions.get(currentSessionId);
     session.wsClients.add(ws);
@@ -549,69 +477,43 @@ wss.on('connection', (ws, request, query) => {
   ws.on('message', async (data) => {
     try {
       const msg = JSON.parse(data.toString());
-
       if (msg.type === 'start') {
         const res = await startSession({
           language: msg.language,
           source_code: msg.source_code !== undefined ? msg.source_code : msg.code
         });
-
         if (res.success) {
           currentSessionId = res.sessionId;
           const session = activeSessions.get(currentSessionId);
-          if (session) {
-            session.wsClients.add(ws);
-          }
+          if (session) session.wsClients.add(ws);
           ws.send(JSON.stringify({ type: 'started', sessionId: currentSessionId }));
         } else {
-          ws.send(JSON.stringify({
-            type: 'error',
-            status: res.status,
-            compile_output: res.compile_output,
-            error: res.error || 'Execution start failed'
-          }));
+          ws.send(JSON.stringify({ type: 'error', status: res.status, compile_output: res.compile_output, error: res.error || 'Execution start failed' }));
           ws.send(JSON.stringify({ type: 'exit', code: 1 }));
         }
-
       } else if (msg.type === 'stdin') {
         const sId = msg.sessionId || currentSessionId;
-        if (sId) {
-          sendInput(sId, msg.data !== undefined ? msg.data : '');
-        }
-
+        if (sId) sendInput(sId, msg.data !== undefined ? msg.data : '');
       } else if (msg.type === 'stop') {
         const sId = msg.sessionId || currentSessionId;
-        if (sId) {
-          stopSession(sId);
-        }
-
+        if (sId) stopSession(sId);
       } else if (msg.type === 'ping') {
         ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
       }
     } catch (err) {
-      console.error('[WORKER WS ERROR]:', err);
-      try {
-        ws.send(JSON.stringify({ type: 'error', message: err.message }));
-      } catch (e) {}
+      try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch (_) {}
     }
   });
 
   ws.on('close', () => {
     if (currentSessionId && activeSessions.has(currentSessionId)) {
-      const session = activeSessions.get(currentSessionId);
-      session.wsClients.delete(ws);
+      activeSessions.get(currentSessionId).wsClients.delete(ws);
     }
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`⚡ NRG ENGINE 2.0 — PERSISTENT EXECUTION WORKER ONLINE`);
-  console.log(`📡 Port: ${PORT}`);
-  console.log(`🩺 Health: http://localhost:${PORT}/health`);
-  console.log(`⚡ WebSocket: ws://localhost:${PORT}/ws`);
-  console.log(`🛡 Session Isolation: ${BASE_SESSIONS_DIR}`);
-  console.log(`====================================================`);
+  console.log(`⚡ NRG Engine Persistent Execution Worker online on port ${PORT} (NRG CoreX Studios)`);
 });
 
 module.exports = { server, startSession, sendInput, stopSession, cleanupSession, activeSessions };

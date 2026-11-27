@@ -1,8 +1,27 @@
 /**
  * NRG ENGINE — CENTRALIZED APPLICATION DEFAULTS & CONFIGURATION
- * Single source of truth shared between backend (/api/config), frontend UI defaults,
- * and workspace storage initialization. Zero hardcoded user-specific personal details.
+ * Studio: NRG CoreX Studios | Creator: Tanmay NRG
+ * Single source of truth shared between backend (/api/config), frontend defaults,
+ * and workspace persistence. Zero hardcoded user-specific personal details.
  */
+
+const BRAND_IDENTITY = Object.freeze({
+  productName: 'NRG Engine',
+  studioName: 'NRG CoreX Studios',
+  creatorCredit: 'Developed by Tanmay NRG',
+  version: '1.0.0',
+  license: 'MIT'
+});
+
+const EXECUTION_LIMITS = Object.freeze({
+  COMPILE_TIMEOUT_MS: 10000,
+  MAX_EXECUTION_TIMEOUT_MS: 30000,
+  INACTIVITY_TIMEOUT_MS: 30000,
+  MAX_SOURCE_BYTES: 262144,
+  MAX_STDIN_BYTES: 65536,
+  MAX_OUTPUT_BYTES: 5 * 1024 * 1024,
+  MAX_CONCURRENT_SESSIONS: 25
+});
 
 const DEFAULT_SETTINGS = Object.freeze({
   displayName: '',
@@ -10,14 +29,16 @@ const DEFAULT_SETTINGS = Object.freeze({
   roleTitle: 'Developer',
   bio: '',
   avatarDataUrl: '',
-  avatarAccent: '#0066ff',
-  theme: 'crystal-obsidian',
+  avatarAccent: '#171A21',
+  theme: 'glass-light',
   fontSize: 14.5,
-  fontFamily: "'Consolas', 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace",
+  fontFamily: "'Consolas', 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, monospace",
   tabSize: 4,
   wordWrap: false,
   lineNumbers: true,
   minimap: false,
+  bracketMatching: true,
+  codeFolding: true,
   autoIndent: true,
   autoSave: true,
   autoSaveDelayMs: 2500,
@@ -27,7 +48,10 @@ const DEFAULT_SETTINGS = Object.freeze({
   aiEndpoint: '',
   aiModel: '',
   aiApiKey: '',
-  soundEffects: true
+  executionMode: 'auto',
+  pyodideFallback: true,
+  soundEffects: true,
+  desktopToasts: true
 });
 
 const ACCOUNT_ROLES = Object.freeze([
@@ -40,9 +64,9 @@ const ACCOUNT_ROLES = Object.freeze([
 ]);
 
 const FONT_FAMILY_OPTIONS = Object.freeze([
-  { label: 'Consolas', value: "'Consolas', 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, monospace" },
-  { label: 'JetBrains Mono', value: "'JetBrains Mono', 'Consolas', 'Fira Code', monospace" },
+  { label: 'Consolas', value: "'Consolas', 'Fira Code', 'JetBrains Mono', 'SF Mono', Monaco, monospace" },
   { label: 'Fira Code', value: "'Fira Code', 'Cascadia Code', 'Consolas', monospace" },
+  { label: 'JetBrains Mono', value: "'JetBrains Mono', 'Consolas', 'Fira Code', monospace" },
   { label: 'Cascadia Code', value: "'Cascadia Code', 'Consolas', 'Courier New', monospace" },
   { label: 'Lucida Console', value: "'Lucida Console', 'DejaVu Sans Mono', Monaco, monospace" },
   { label: 'Courier New', value: "'Courier New', Courier, monospace" }
@@ -56,6 +80,8 @@ const PREDICTOR_LIMITS = Object.freeze({
 });
 
 module.exports = {
+  BRAND_IDENTITY,
+  EXECUTION_LIMITS,
   DEFAULT_SETTINGS,
   ACCOUNT_ROLES,
   FONT_FAMILY_OPTIONS,
