@@ -63,6 +63,8 @@ const MIME_TYPES = {
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webp': 'image/webp',
   '.txt': 'text/plain; charset=utf-8',
   '.map': 'application/json'
 };

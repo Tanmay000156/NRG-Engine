@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" id="metaThemeColor" content="#F3F5F8">
+  <meta name="theme-color" id="metaThemeColor" content="#101114">
   <title>NRG ENGINE — Cloud Coding Platform</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171A21'/%3E%3Cpath d='M13.5 8L9.5 24M21.5 8L17.5 24' stroke='%23FFFFFF' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Fira+Code:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/landing/landing.css">
   <style>
 
     /* ==========================================================================
@@ -7128,7 +7129,349 @@
 
 </style>
 </head>
-<body class="glass-light pure-glass theme-light">
+<body class="crystal-obsidian obsidian-glass theme-dark nrg-landing-active">
+
+  <!-- Cinematic Aviation Scroll Landing Overlay (Fades into Pure Darkness -> Main Dashboard) -->
+  <div id="nrgLandingGate" class="nrg-landing-gate" role="region" aria-label="NRG Engine Showcase">
+    <div class="nrg-landing-track" id="landingScrollTrack">
+      <div class="nrg-landing-sticky">
+        <video
+          id="landingFallbackVideo"
+          class="nl-bg-media nl-bg-video"
+          src="assets/landing/skyelite-jet-cinematic.mp4"
+          muted
+          playsinline
+          preload="metadata"
+          aria-hidden="true"
+        ></video>
+
+        <canvas id="landingScrubCanvas" class="nl-bg-media nl-bg-canvas" width="1024" height="576" aria-hidden="true"></canvas>
+
+        <div class="nl-hero-scrim" id="landingScrim" aria-hidden="true"></div>
+
+        <header class="nl-header" id="landingHeader">
+          <a href="#top" class="nl-brand" data-landing-nav="home" aria-label="NRG Engine Home">
+            <svg class="nl-brand-slashes" width="22" height="18" viewBox="0 0 22 18" fill="none" aria-hidden="true">
+              <path d="M7.2 1.5L1.8 16.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+              <path d="M14.8 1.5L9.4 16.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+            </svg>
+            <span>NRG Engine</span>
+          </a>
+
+          <nav class="nl-nav" aria-label="Landing Navigation">
+            <button type="button" class="nl-nav-link is-active" data-landing-nav="home" aria-current="page">
+              <span>Home</span>
+              <span class="nl-nav-glow" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="nl-nav-link" data-landing-nav="features">
+              <span>Features</span>
+              <span class="nl-nav-glow" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="nl-nav-link" data-landing-nav="pricing">
+              <span>Pricing</span>
+              <span class="nl-nav-glow" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="nl-nav-link" data-landing-nav="nrg">
+              <span>NRG</span>
+              <span class="nl-nav-glow" aria-hidden="true"></span>
+            </button>
+          </nav>
+
+          <div class="nl-header-right">
+            <div class="nl-credit">
+              <span class="nl-credit-divider" aria-hidden="true"></span>
+              <div class="nl-credit-copy">
+                <div class="nl-credit-main">A website by <span class="nl-credit-studio">NRG CoreX Studios</span></div>
+                <div class="nl-credit-author">&ndash; Tanmay NRG</div>
+              </div>
+            </div>
+
+            <button type="button" class="nl-mobile-menu-btn" id="landingMobileMenuBtn" aria-expanded="false" aria-controls="landingMobileDrawer" aria-label="Toggle navigation menu">
+              <span class="nl-menu-line"></span>
+              <span class="nl-menu-line"></span>
+            </button>
+          </div>
+
+          <div class="nl-mobile-drawer" id="landingMobileDrawer" hidden>
+            <button type="button" class="nl-mobile-link is-active" data-landing-nav="home">Home</button>
+            <button type="button" class="nl-mobile-link" data-landing-nav="features">Features</button>
+            <button type="button" class="nl-mobile-link" data-landing-nav="pricing">Pricing</button>
+            <button type="button" class="nl-mobile-link" data-landing-nav="nrg">NRG</button>
+            <div class="nl-mobile-credit">
+              A website by <span class="nl-credit-studio">NRG CoreX Studios</span><br />
+              <span class="nl-credit-author">&ndash; Tanmay NRG</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="nl-hero-overlay">
+          <!-- SCENE 1: HOME -->
+          <section class="nl-scene is-visible" id="landingSceneHome" aria-label="Home">
+            <div class="nl-eyebrow">
+              <span class="nl-eyebrow-text">NRG ENGINE</span>
+              <span class="nl-eyebrow-rule" aria-hidden="true"></span>
+            </div>
+
+            <h1 class="nl-hero-title">
+              <span class="nl-title-line nl-title-top">Code Smarter.</span>
+              <span class="nl-title-line nl-title-gold">Code Further.</span>
+            </h1>
+
+            <p class="nl-hero-subtitle">
+              Your all-in-one workspace to code, create, innovate, and bring ideas to life with AI.
+            </p>
+
+            <div>
+              <button type="button" id="landingLaunchBtn" class="nl-hero-cta">
+                <span>Launch workspace</span>
+                <svg class="nl-cta-arrow" width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M3.5 9H14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <path d="M10 4.5L14.5 9L10 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </section>
+
+          <!-- SCENE 2: FEATURES -->
+          <section class="nl-scene nl-scene-features" id="landingSceneFeatures" aria-label="Features" aria-hidden="true">
+            <div class="nl-eyebrow nl-eyebrow-split">
+              <span class="nl-eyebrow-text">NRG ENGINE <span class="nl-eyebrow-dash">&mdash;</span> <span class="nl-eyebrow-accent">FEATURES</span></span>
+              <span class="nl-eyebrow-rule" aria-hidden="true"></span>
+            </div>
+
+            <ul class="nl-features-list">
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="8 7 3 12 8 17" />
+                    <polyline points="16 7 21 12 16 17" />
+                    <line x1="13.5" y1="5" x2="10.5" y2="19" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>AI Code Assistant</h2>
+                  <p>Write, explain, debug and refactor instantly.</p>
+                </div>
+              </li>
+
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 3 21 7.5 12 12 3 7.5 12 3" />
+                    <polyline points="3 12 12 16.5 21 12" />
+                    <polyline points="3 16.5 12 21 21 16.5" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>Multi-Language IDE</h2>
+                  <p>Code, run and build across multiple languages.</p>
+                </div>
+              </li>
+
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20" />
+                    <circle cx="9.5" cy="7.5" r="3.2" />
+                    <path d="M21 20v-1.6a3.2 3.2 0 0 0-2.4-3.1" />
+                    <path d="M15.5 4.6a3.2 3.2 0 0 1 0 6.2" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>Real-Time Collaboration</h2>
+                  <p>Code together, live and in sync.</p>
+                </div>
+              </li>
+
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3.5" y="5.5" width="6.5" height="13" rx="1.6" />
+                    <rect x="14" y="5.5" width="6.5" height="13" rx="1.6" />
+                    <line x1="10" y1="10" x2="14" y2="10" />
+                    <line x1="10" y1="14" x2="14" y2="14" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>Smart Templates</h2>
+                  <p>Production-ready boilerplates to start faster.</p>
+                </div>
+              </li>
+
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.5 18.5H7.2a4.4 4.4 0 0 1-.4-8.78A5.4 5.4 0 0 1 17.1 8.4a3.9 3.9 0 0 1 .4 7.78" />
+                    <polyline points="9.5 13.5 12 11 14.5 13.5" />
+                    <line x1="12" y1="11" x2="12" y2="18.5" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>Cloud Projects</h2>
+                  <p>Save and access your work from anywhere.</p>
+                </div>
+              </li>
+
+              <li class="nl-feature-row">
+                <div class="nl-feature-glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="19" x2="5" y2="16" />
+                    <line x1="9.6" y1="19" x2="9.6" y2="13" />
+                    <line x1="14.2" y1="19" x2="14.2" y2="9.5" />
+                    <line x1="18.8" y1="19" x2="18.8" y2="5.5" />
+                  </svg>
+                </div>
+                <div class="nl-feature-copy">
+                  <h2>Developer Analytics</h2>
+                  <p>Track your progress, activity and growth.</p>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <!-- SCENE 3: PRICING -->
+          <section class="nl-scene nl-scene-pricing" id="landingScenePricing" aria-label="Pricing" aria-hidden="true">
+            <div class="nl-eyebrow nl-eyebrow-split">
+              <span class="nl-eyebrow-text">NRG ENGINE <span class="nl-eyebrow-dot">&middot;</span> <span class="nl-eyebrow-accent">PRICING</span></span>
+              <span class="nl-eyebrow-rule" aria-hidden="true"></span>
+            </div>
+
+            <h2 class="nl-hero-title">
+              <span class="nl-title-line nl-title-top">Currently Free</span>
+              <span class="nl-title-line nl-title-gold">for Everyone.</span>
+            </h2>
+
+            <p class="nl-hero-subtitle nl-pricing-subtitle">
+              We're in our early phase, so NRG Engine is completely free for now &mdash; with full access to all features, no limits.
+            </p>
+
+            <div>
+              <button type="button" id="landingPricingLaunchBtn" class="nl-hero-cta">
+                <span>Launch Workspace</span>
+                <svg class="nl-cta-arrow" width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M3.5 9H14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                  <path d="M10 4.5L14.5 9L10 13.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="nl-pricing-figure-row">
+              <div class="nl-pricing-amount-wrap">
+                <span class="nl-pricing-dollar nl-title-gold-inline">$0</span>
+                <span class="nl-pricing-period">/ month</span>
+              </div>
+              <span class="nl-pricing-divider" aria-hidden="true"></span>
+              <span class="nl-early-access-pill">Early Access</span>
+            </div>
+
+            <ul class="nl-pricing-checks">
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Full access to all features</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>No usage limits</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>No credit card required</span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- SCENE 4: NRG STUDIO -->
+          <section class="nl-scene nl-scene-nrg" id="landingSceneNrg" aria-label="NRG CoreX Studios" aria-hidden="true">
+            <div class="nl-eyebrow nl-eyebrow-split">
+              <span class="nl-eyebrow-text">NRG ENGINE <span class="nl-eyebrow-dash">&mdash;</span> <span class="nl-eyebrow-accent">OUR STUDIO</span></span>
+              <span class="nl-eyebrow-rule" aria-hidden="true"></span>
+            </div>
+
+            <h2 class="nl-studio-title">
+              <span class="nl-title-top-inline">NRG CoreX</span> <span class="nl-title-gold-inline">Studios</span>
+            </h2>
+
+            <p class="nl-studio-lead">
+              A developer studio focused on building powerful, accessible and modern tools for creators, developers and learners.
+            </p>
+
+            <div class="nl-founder-row">
+              <div class="nl-founder-emblem" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M11.3 5L6.3 19" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" />
+                  <path d="M17.7 5L12.7 19" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" />
+                </svg>
+              </div>
+              <span class="nl-founder-divider" aria-hidden="true"></span>
+              <div>
+                <div class="nl-founder-name">
+                  <span>Tanmay Verma</span>
+                  <svg class="nl-founder-arrow" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4.5 11.5L11.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    <path d="M5.5 4.5H11.5V10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div class="nl-founder-role">Founder &amp; Developer, NRG CoreX Studios</div>
+              </div>
+            </div>
+
+            <p class="nl-studio-bio">
+              I'm Tanmay Verma, the creator of NRG Engine. I build tools that make coding simpler, smarter and more productive, blending development with design and real-world utility.
+            </p>
+
+            <div class="nl-studio-pillars">
+              <div class="nl-pillar-col">
+                <div class="nl-pillar-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="8 7 3 12 8 17" />
+                    <polyline points="16 7 21 12 16 17" />
+                    <line x1="13.5" y1="5" x2="10.5" y2="19" />
+                  </svg>
+                </div>
+                <div class="nl-pillar-title">NRG Engine</div>
+                <div class="nl-pillar-sub">Flagship Product</div>
+              </div>
+
+              <div class="nl-pillar-col">
+                <div class="nl-pillar-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 3 21 7.5 12 12 3 7.5 12 3" />
+                    <polyline points="3 12 12 16.5 21 12" />
+                    <polyline points="3 16.5 12 21 21 16.5" />
+                  </svg>
+                </div>
+                <div class="nl-pillar-title">Indie Studio</div>
+                <div class="nl-pillar-sub">Build &middot; Design &middot; Deploy</div>
+              </div>
+
+              <div class="nl-pillar-col">
+                <div class="nl-pillar-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20" />
+                    <circle cx="9.5" cy="7.5" r="3.2" />
+                    <path d="M21 20v-1.6a3.2 3.2 0 0 0-2.4-3.1" />
+                    <path d="M15.5 4.6a3.2 3.2 0 0 1 0 6.2" />
+                  </svg>
+                </div>
+                <div class="nl-pillar-title">Developer First</div>
+                <div class="nl-pillar-sub">Built for the community</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="nl-progress-track" id="landingProgressTrack" aria-hidden="true">
+          <div class="nl-progress-bar" id="landingProgressBar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Ambient Monochrome Liquid Glass Silk Backdrop -->
   <div class="pure-glass-backdrop" aria-hidden="true">
@@ -9718,7 +10061,7 @@
       bio: '',
       avatarDataUrl: '',
       avatarAccent: '#171A21',
-      theme: 'glass-light',
+      theme: 'crystal-obsidian',
       fontSize: 14.5,
       fontFamily: "'JetBrains Mono', 'Consolas', 'Fira Code', monospace",
       tabSize: 4,
@@ -16350,7 +16693,7 @@ public class Main {
         s.avatarDataUrl = typeof s.avatarDataUrl === 'string' && s.avatarDataUrl.startsWith('data:image/') ? s.avatarDataUrl : '';
         s.avatarAccent = typeof s.avatarAccent === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(s.avatarAccent) ? s.avatarAccent : '#171A21';
         const rawTheme = String(s.theme || '').toLowerCase();
-        s.theme = (rawTheme === 'crystal-obsidian' || rawTheme === 'obsidian-glass' || rawTheme === 'dark' || rawTheme === 'theme-dark' || rawTheme === 'theme-midnight') ? 'crystal-obsidian' : 'glass-light';
+        s.theme = (rawTheme === 'glass-light' || rawTheme === 'pure-glass' || rawTheme === 'light' || rawTheme === 'theme-light') ? 'glass-light' : 'crystal-obsidian';
         const fs = parseFloat(s.fontSize);
         s.fontSize = Number.isFinite(fs) ? Math.max(11, Math.min(22, fs)) : NRG_DEFAULTS.fontSize;
         s.fontFamily = typeof s.fontFamily === 'string' && s.fontFamily.trim() ? s.fontFamily : NRG_DEFAULTS.fontFamily;
@@ -16788,6 +17131,7 @@ public class Main {
 
     // Keyboard Shortcuts (Ctrl+K, Ctrl+Shift+P, Ctrl+Enter, Ctrl+R, Ctrl+Shift+F, Ctrl+S)
     window.addEventListener('keydown', (e) => {
+      if (window.__nrgLandingActive) return;
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       if (e.key === 'Escape') {
@@ -16880,15 +17224,15 @@ public class Main {
         LIGHT: 'glass-light',
         DARK: 'crystal-obsidian'
       },
-      currentTheme: 'glass-light',
+      currentTheme: 'crystal-obsidian',
 
       init() {
         const saved = localStorage.getItem('nrg_theme');
-        let initial = this.THEMES.LIGHT;
-        if (saved === 'crystal-obsidian' || saved === 'obsidian-glass' || saved === 'dark' || saved === 'theme-dark') {
-          initial = this.THEMES.DARK;
-        } else if (saved === 'glass-light' || saved === 'pure-glass' || saved === 'light' || saved === 'theme-light') {
+        let initial = this.THEMES.DARK;
+        if (saved === 'glass-light' || saved === 'pure-glass' || saved === 'light' || saved === 'theme-light') {
           initial = this.THEMES.LIGHT;
+        } else if (saved === 'crystal-obsidian' || saved === 'obsidian-glass' || saved === 'dark' || saved === 'theme-dark') {
+          initial = this.THEMES.DARK;
         }
         this.applyTheme(initial, false, { fromSettings: true });
 
@@ -18323,8 +18667,20 @@ public class Main {
         }
       } catch (_) {}
 
+      window.nrgEnterDashboard = () => {
+        navigateToSection('home');
+        if (!ProfileManager.getDisplayName()) {
+          setTimeout(() => {
+            if (!window.__nrgLandingActive && !ProfileManager.getDisplayName() && !OnboardingManager.isOpen()) {
+              OnboardingManager.open({ prefill: '' });
+            }
+          }, 360);
+        }
+      };
+
+      const landingGatePresent = document.body.classList.contains('nrg-landing-active') && !window.location.search.includes('skipLanding=1') && window.location.hash !== '#dashboard';
       const initSec = sessionStorage.getItem('nrg_current_section') || 'home';
-      navigateToSection(initSec);
+      navigateToSection(landingGatePresent ? 'home' : initSec);
 
       // Close floating header/toolbar dropdowns cleanly on resize
       window.addEventListener('resize', () => {
@@ -18335,7 +18691,7 @@ public class Main {
         document.getElementById('btnEditorMore')?.setAttribute('aria-expanded', 'false');
       });
 
-      if (!ProfileManager.getDisplayName()) {
+      if (!landingGatePresent && !ProfileManager.getDisplayName()) {
         OnboardingManager.open({ prefill: '' });
       }
     })();
@@ -18350,5 +18706,6 @@ public class Main {
     
 
 
+  <script src="assets/landing/landing.js" defer></script>
 </body>
 </html>
